@@ -11,10 +11,12 @@ import numpy as np
 # GPIO.output(40, GPIO.HIGH)
 
 camera = cv2.VideoCapture(0) # webcam
-
+resolution = (320, 240)
+camera.set(3, resolution[0]) 
+camera.set(4, resolution[0]) 
 ### IF USING RASPI UNCOMMENT LINES 16 TO 19
 # camera = PiCamera()
-# camera.resolution = (640, 360)
+# ~ camera.resolution = (640, 360)
 # camera.rotation = 180
 #rawCapture = PiRGBArray(camera, size=(640, 360))
 time.sleep(0.1)
