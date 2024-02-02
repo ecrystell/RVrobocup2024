@@ -17,4 +17,5 @@ while True:
 	cv2.imshow("collecting rgb values", image)	
 	key = cv2.waitKey(1) & 0xFF	
 	if key == ord("q"):
-		break	
+		break
+		#test
