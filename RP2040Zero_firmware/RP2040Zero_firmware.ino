@@ -86,12 +86,14 @@ void loop() {
           int rightspeed = atoi(pch);
           pch = getNextWord(NULL, " ,\0");
           int degrees = atoi(pch);
-
           Serial.print("left speed:");
           Serial.print(leftspeed);
           Serial.print("\tright speed:");
           Serial.println(rightspeed);
-          move(leftspeed, rightspeed); // make a degree move function
+          Serial.print("\tdegrees:");
+          Serial.println(degrees);
+          moveDegrees(leftspeed, rightspeed, degrees);
+
         } else if (compareWord(buf, "P")) { // pixel colour P r g b (0 to 255)
           Serial.println(buf);
           pch = getNextWord(buf, " ,\0");

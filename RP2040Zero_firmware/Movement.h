@@ -1,6 +1,7 @@
 #ifndef MOVEMENT_H
 #define MOVEMENT_H
 #include <Arduino.h>
+#include <Adafruit_TiCoServo.h>
 
 #define AIN1 27
 #define AIN2 28
@@ -13,6 +14,42 @@
 #define SORTER 11
 #define SPINNER 12
 
+//encoders, 8 is right 9 is left, idk which one is A which is B
+#define ENA 8
+#define ENB 9
+
+volatile int countA, countB;
+Adafruit_TiCoServo grabber, sorter, leftramp, rightramp;
+
+
+// copied from 2023
+void resetDegrees(){
+  countA = 0;
+  countB = 0 ;
+}
+
+void isrA() {  // i
+  if (leftBackward) {
+    countA--;
+  } else {
+    countA++;
+  }
+  // Serial.print("A: ");
+  // Serial.println(countA);
+}
+
+// count encoder thnigy for right side
+void isrB() {
+  if (rightBackward) {
+    countB--;
+  } else {
+    countB++;
+  }
+  // Serial.print("B: ");
+  // Serial.println(countB);
+}
+// end copied
+
 void setupMotors(){
   pinMode(PWMA,OUTPUT);
   pinMode(AIN1,OUTPUT);
@@ -21,8 +58,8 @@ void setupMotors(){
   pinMode(BIN1,OUTPUT);
   pinMode(BIN2,OUTPUT);
   // copied from 2023
-  // attachInterrupt(digitalPinToInterrupt(ENA), isrA, CHANGE);
-  // attachInterrupt(digitalPinToInterrupt(ENB), isrB, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENA), isrA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENB), isrB, CHANGE);
   // grabber.attach(GRABBER);
   // sorter.attach(SORTER);
   // leftramp.attach(LEFTRAMP);
@@ -61,11 +98,28 @@ void move(int LSpeed, int RSpeed)
   }
 }
 
-// void moveDegrees(int left, int right, int deg) {
-//   // reset encoder
-//   while (encoder < deg) {
-//     //read encoder
-//     move(leftspeed, rightspeed); // may not need to do motorsync
-//   }
-// }
+void moveDegrees(int leftSpeed, int rightSpeed, int degrees) {
+  resetDegrees();
+  if (leftSpeed == 0){
+    while(abs(countB) < degrees){
+      move(0, rightSpeed);
+    }
+  } else if (rightSpeed == 0){
+    while(abs(countA) < degrees){
+      move(leftSpeed, 0);
+    } 
+  } else if (abs(leftSpeed) > abs (rightSpeed)) {    
+    while(abs(countA) < degrees){
+      move(leftSpeed, rightSpeed);
+    }
+  } else {
+    while(abs(countB) < degrees){
+      move(leftSpeed, rightSpeed);
+    }
+  }
+  move(0, 0);
+  resetDegrees();
+  Serial.println(countA);
+  
+}
 #endif
