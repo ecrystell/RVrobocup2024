@@ -21,6 +21,7 @@ time.sleep(1)
 speed = 50
 kp = 0.8
 r = Robot('/dev/serial0')
+Greendected = False
 
 
 
@@ -60,14 +61,14 @@ while True:
 		cv2.line(image, (centerx_grn, 200), (centerx_grn, 250),(0,0,255),3)	
 
 		# check if green is behind black line
-		checkimage = image[100:200-y_grn,  x_grn:(x_grn+w_grn)]
-		checkGreen = cv2.inRange(checkimage, (0,0,0), (50,50,50))
-		checkGreen = cv2.erode(checkGreen, kernel, iterations=5)
-		checkGreen = cv2.dilate(checkGreen, kernel, iterations=9)
-		contours_chk, hierarchy_chk = cv2.findContours(checkGreen.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+		#checkimage = image[100:200-y_grn, x_grn:(x_grn+w_grn)]
+		#checkGreen = cv2.inRange(checkimage, (0,0,0), (50,50,50))
+		#checkGreen = cv2.erode(checkGreen, kernel, iterations=5)
+		#checkGreen = cv2.dilate(checkGreen, kernel, iterations=9)
+		#contours_chk, hierarchy_chk = cv2.findContours(checkGreen.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 		
-		if len(contours_chk)> 0:
-			Greendected = True
+		#if len(contours_chk)> 0:
+		Greendected = True
 			# im not gonna lie i dunno why the checkgreen works so if it doesnt send help
 			# xchk, ychk , wchk, hchk = cv2.boundingRect(contours_chk[0])
 			# centerx_chk = int(xchk + (wchk/2))  	   
