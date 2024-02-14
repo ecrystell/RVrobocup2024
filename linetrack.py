@@ -44,8 +44,35 @@ while True:
 	Blackline = cv2.dilate(Blackline, kernel, iterations=9)
 	if invert:
 		Blackline = cv2.bitwise_not(Blackline) 	
-	contours_blk,hierarchy = cv2.findContours(Blackline.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)[-2:]	
+	contours_blk,hierarchy = cv2.findContours(Blackline.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)[-2:]
+	contours_grn, hierarchy_grn = cv2.findContours(Greensign.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+	
 	contours_blk_len = len(contours_blk)
+
+	if len(contours_grn) > 0 :
+			
+		# drawing rect around the green square
+		x_grn, y_grn , w_grn, h_grn = cv2.boundingRect(contours_grn[0])
+		print(x_grn, y_grn, w_grn, h_grn)
+		centerx_grn = int(x_grn + (w_grn/2))
+
+		# drawing line in center of green square 
+		cv2.line(image, (centerx_grn, 200), (centerx_grn, 250),(0,0,255),3)	
+
+		# check if green is behind black line
+		checkimage = image[100:200-y_grn,  x_grn:(x_grn+w_grn)]
+		checkGreen = cv2.inRange(checkimage, (0,0,0), (50,50,50))
+		checkGreen = cv2.erode(checkGreen, kernel, iterations=5)
+		checkGreen = cv2.dilate(checkGreen, kernel, iterations=9)
+		contours_chk, hierarchy_chk = cv2.findContours(checkGreen.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+		
+		if len(contours_chk)> 0:
+			Greendected = True
+			# im not gonna lie i dunno why the checkgreen works so if it doesnt send help
+			# xchk, ychk , wchk, hchk = cv2.boundingRect(contours_chk[0])
+			# centerx_chk = int(xchk + (wchk/2))  	   
+			# cv2.line(image, (centerx_chk, 100), (centerx_chk, 200-y_grn),(0,255,0),3)
+
 	if contours_blk_len > 0 :
 		if contours_blk_len == 1 :
 			blackbox = cv2.minAreaRect(contours_blk[0])
@@ -100,13 +127,28 @@ while True:
 		cv2.putText(image,str(error),(10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 		cv2.line(image, (int(x_min),200 ), (int(x_min),250 ), (255,0,0),3)
 		
+	if Greendected : 
+
+
+		# if centerx_grn > (centerx_blk + 20):
+		# 	cv2.putText(image, "Turn Right", (350,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		# elif centerx_grn < (centerx_blk - 20) :
+		# 	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		# else:
+		# 	cv2.putText(image, "U-turn", (180,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		
+		if centerx_grn > (x_min + 20):
+			cv2.putText(image, "Turn Right", (350,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		elif centerx_grn < (x_min - 20) :
+			cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+
 	cv2.imshow("orginal", Blackline)		
 	cv2.imshow("orginal with line", image)	
 	key = cv2.waitKey(1) & 0xFF	
 	
 	#keys to interact with code 
 	if key == ord("q"): #q: exit program 
-		move(0, 0)
+		r.move(0, 0)
 		break
 	elif key == ord("r"): #r: toggle run mode 
 		run = not run

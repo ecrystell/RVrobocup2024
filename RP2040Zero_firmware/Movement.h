@@ -1,7 +1,7 @@
 #ifndef MOVEMENT_H
 #define MOVEMENT_H
 #include <Arduino.h>
-#include <Adafruit_TiCoServo.h>
+//#include <Adafruit_TiCoServo.h>
 
 #define AIN1 27
 #define AIN2 28
@@ -14,12 +14,13 @@
 #define SORTER 11
 #define SPINNER 12
 
+
 //encoders, 8 is right 9 is left, idk which one is A which is B
 #define ENA 8
 #define ENB 9
-
+bool rightBackward, leftBackward;
 volatile int countA, countB;
-Adafruit_TiCoServo grabber, sorter, leftramp, rightramp;
+//Adafruit_TiCoServo grabber, sorter, leftramp, rightramp;
 
 
 // copied from 2023
