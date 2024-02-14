@@ -16,8 +16,8 @@
 
 
 //encoders, 8 is right 9 is left, idk which one is A which is B
-#define ENA 8
-#define ENB 9
+#define ENA 9
+#define ENB 8
 bool rightBackward, leftBackward;
 volatile int countA, countB;
 //Adafruit_TiCoServo grabber, sorter, leftramp, rightramp;
@@ -52,6 +52,7 @@ void isrB() {
 // end copied
 
 void setupMotors(){
+  Serial.println("restarted");
   pinMode(PWMA,OUTPUT);
   pinMode(AIN1,OUTPUT);
   pinMode(AIN2,OUTPUT);
