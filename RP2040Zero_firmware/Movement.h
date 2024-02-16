@@ -1,6 +1,7 @@
 #ifndef MOVEMENT_H
 #define MOVEMENT_H
 #include <Arduino.h>
+#include <Servo.h>
 //#include <Adafruit_TiCoServo.h>
 
 #define AIN1 27
@@ -20,7 +21,7 @@
 #define ENB 8
 bool rightBackward, leftBackward;
 volatile int countA, countB;
-//Adafruit_TiCoServo grabber, sorter, leftramp, rightramp;
+Servo grabber, sorter, spinner;
 
 
 // copied from 2023
@@ -52,21 +53,26 @@ void isrB() {
 // end copied
 
 void setupMotors(){
-  Serial.println("restarted");
   pinMode(PWMA,OUTPUT);
   pinMode(AIN1,OUTPUT);
   pinMode(AIN2,OUTPUT);
   pinMode(PWMB,OUTPUT);
   pinMode(BIN1,OUTPUT);
   pinMode(BIN2,OUTPUT);
+
+  pinMode(ENA, INPUT);
+  pinMode(ENB, INPUT);
   // copied from 2023
   attachInterrupt(digitalPinToInterrupt(ENA), isrA, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENB), isrB, CHANGE);
-  // grabber.attach(GRABBER);
-  // sorter.attach(SORTER);
-  // leftramp.attach(LEFTRAMP);
-  // rightramp.attach(RIGHTRAMP);
+  grabber.attach(GRABBER);
+  sorter.attach(SORTER);
+  spinner.attach(SPINNER);
   // end of copied
+}
+
+void moveGrabber(int pos) {
+  grabber.write(pos);
 }
 
 void move(int LSpeed, int RSpeed)
