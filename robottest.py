@@ -23,7 +23,7 @@ while True:
 	time.sleep(1)
 	#robot.movedegrees(100, 100, 50)
 	robot.grabber(90)
-	time.sleep(1)
+	time.sleep(2)
 	#robot.movedegrees(-100, -100, 50)
 	robot.grabber(0)
 	time.sleep(1)
