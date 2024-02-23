@@ -31,15 +31,18 @@ while True:
 		
 	_, original = cap.read()
 	image = original
+	
 	if grayscale:
 		image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 		Blackline= cv2.inRange(image, (0), (50))
 	else:
+		roi = image[230:231, 0:320]
 		Blackline= cv2.inRange(image, (0, 0, 0), (50, 50, 50))
-		Greensign = cv2.inRange(image, (0,65,0), (100,200,100))
+		Greensign = cv2.inRange(roi, (70,70,0), (150,220,30))
 		kernel = np.ones((3,3), np.uint8) #to get the RGB thingies 
 		Greensign = cv2.erode(Greensign, kernel, iterations=5) #eroding and dilating
 		Greensign = cv2.dilate(Greensign, kernel, iterations=9)
+		
 	kernel = np.ones((3,3), np.uint8)
 	Blackline = cv2.erode(Blackline, kernel, iterations=5)
 	Blackline = cv2.dilate(Blackline, kernel, iterations=9)
@@ -53,8 +56,11 @@ while True:
 	if len(contours_grn) > 0 :
 			
 		# drawing rect around the green square
+		
 		x_grn, y_grn , w_grn, h_grn = cv2.boundingRect(contours_grn[0])
-		print(x_grn, y_grn, w_grn, h_grn)
+		#greenbox = cv2.minAreaRect(contours_grn[0])
+		#(x_grn, y_grn), (w_grn, h_grn), anggrn = greenbox
+		#print(x_grn, y_grn, w_grn, h_grn)
 		centerx_grn = int(x_grn + (w_grn/2))
 
 		# drawing line in center of green square 
@@ -73,7 +79,8 @@ while True:
 			# xchk, ychk , wchk, hchk = cv2.boundingRect(contours_chk[0])
 			# centerx_chk = int(xchk + (wchk/2))  	   
 			# cv2.line(image, (centerx_chk, 100), (centerx_chk, 200-y_grn),(0,255,0),3)
-
+		
+		cv2.rectangle(image, (x_grn, y_grn+230), (x_grn+w_grn, y_grn+h_grn+230), (255, 0, 0), 2) 
 	if contours_blk_len > 0 :
 		if contours_blk_len == 1 :
 			blackbox = cv2.minAreaRect(contours_blk[0])
@@ -131,17 +138,17 @@ while True:
 	if Greendected : 
 
 
-		# if centerx_grn > (centerx_blk + 20):
-		# 	cv2.putText(image, "Turn Right", (350,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-		# elif centerx_grn < (centerx_blk - 20) :
-		# 	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-		# else:
-		# 	cv2.putText(image, "U-turn", (180,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		 if centerx_grn > (x_min + 40):
+		 	cv2.putText(image, "Turn Right", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		 elif centerx_grn < (x_min - 40) :
+		 	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		 else:
+		 	cv2.putText(image, "U-turn", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
 		
-		if centerx_grn > (x_min + 20):
-			cv2.putText(image, "Turn Right", (350,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-		elif centerx_grn < (x_min - 20) :
-			cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		#if centerx_grn > (x_min):
+		#	cv2.putText(image, "Turn Right", (100,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
+		#elif centerx_grn < (x_min) :
+		#	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
 
 	cv2.imshow("orginal", Blackline)		
 	cv2.imshow("orginal with line", image)	
