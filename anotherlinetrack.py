@@ -44,7 +44,7 @@ while True:
 		Blackline = cv2.bitwise_not(Blackline) 	
 	contours_blk,hierarchy = cv2.findContours(Blackline.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)[-2:]	
 	contours_blk_len = len(contours_blk)
-	if contours_blk_len > 0 :
+	if contours_blk_len > 0 : #can be used to see if robot has lost the line or have detect gap in line
 		if contours_blk_len == 1 :
 			blackbox = cv2.minAreaRect(contours_blk[0])
 		else:
@@ -55,9 +55,9 @@ while True:
 				(x_min, y_min), (w_min, h_min), ang = blackbox		
 				box = cv2.boxPoints(blackbox)
 				(x_box,y_box) = box[0]
-				#if y_box > 20 :		 
-				off_bottom += 1
-				canditates.append((y_box,con_num,x_min,y_min))		
+				if y_box > 20 :		 
+					off_bottom += 1
+					canditates.append((y_box,con_num,x_min,y_min))		
 			canditates = sorted(canditates)
 			#print(canditates)
 			if off_bottom > 1:	    
