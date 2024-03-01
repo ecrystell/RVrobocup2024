@@ -4,11 +4,27 @@ import time
 import serial
 
 
-lidar = LD19('/dev/ttyAMA3', offsetdeg = -90, flip = True)
+lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 robot = Robot('/dev/serial0')
 lidar.visualise(0, 180)
-while False:
-	print(lidar.getReading(90))
+
+while True:
+	for i in range(179):
+		print(i, lidar.getReading(i))
+	# pointgroup = []
+	# pointcount = 0
+	# for i in range(179):
+		# distance = lidar.getReading(i)-lidar.getReading(i+1)
+		# if distance < 30:
+			# pointcount = pointcount + 1
+		# else:
+			# if pointcount < 8 and len(pointgroup) > 0:
+				# pointgroup[-1] += pointcount
+			# else:
+				# pointgroup.append(pointcount)
+			# pointcount = 0
+	#print(pointgroup)
+	#print(lidar.getReading(90))
 	# try:	
 		# lidarwall = lidar.getReading(140)
 		# lidarstop = lidar.getReading(90)

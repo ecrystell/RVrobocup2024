@@ -14,7 +14,7 @@ cv2.createTrackbar("Saturation Min", "Slider", 0, 255, do_nothing)
 cv2.createTrackbar("Saturation Max", "Slider", 0, 255, do_nothing)
 cv2.createTrackbar("Value Min", "Slider", 0, 255, do_nothing)
 cv2.createTrackbar("Value Max", "Slider", 0, 255, do_nothing)
-
+cv2.moveWindow("Slider", 0, 0)
 cap = cv2.VideoCapture(0)
 resolution = (320, 240)
 cap.set(3, resolution[0]) 
@@ -47,15 +47,15 @@ while True:
 
     # create mask
 	mask = cv2.inRange(hsv_img, lower_bound, upper_bound)
-
-
-	resulting_img = cv2.bitwise_and(img, img, mask=mask)
-
+	black = np.zeros(shape = [320,320,3], dtype = np.uint8)
+	white = 255 * np.ones(shape = [320,320,3], dtype = np.uint8)
+	
+	resulting_img = cv2.bitwise_or(black, white, mask=mask)
 	stacked_imgs = np.hstack([img, resulting_img])
 
 #     create a stacked image of the original and the HSV one.
 	cv2.imshow("Image", stacked_imgs)
-	cv2.imshow("Mask", mask)
+	
 	if cv2.waitKey(1) & 0xFF == ord("q"):
 		break
 
