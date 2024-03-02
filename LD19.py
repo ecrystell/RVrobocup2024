@@ -31,7 +31,6 @@ import math
 
 def angle_between_points(x1, y1, x2, y2, x3, y3):
 
-
   # Calculate the vectors from the second point to the other two points
 	v1 = (x1 - x2, y1 - y2)
 	v2 = (x3 - x2, y3 - y2)
@@ -50,7 +49,7 @@ def angle_between_points(x1, y1, x2, y2, x3, y3):
 
   # Convert the angle to degrees and return
 	return math.degrees(angle_radians) % 180
-
+        
 
 class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
@@ -125,46 +124,83 @@ class LD19:
 		if self.visualisation:
 			self.visualisethread.terminate()
 			self.visualisation = False
-	
-	def getObstacle(self):
-		threshold = 50
-		prevdist = 0
-		maxdiff = 0
-		maxloc = 0
-		for i in range(self.startangle+1, self.endangle-1):
+ 
+ 
+	# def getObstacle(self):
+	# 	threshold = 50
+	# 	prevdist = 0
+	# 	maxdiff = 0
+	# 	maxloc = 0
+	# 	for i in range(self.startangle+1, self.endangle-1):
 			
-			b = self.lidarvalues[i]
-			c = self.lidarvalues[i+1]
+	# 		b = self.lidarvalues[i]
+	# 		c = self.lidarvalues[i+1]
 			
 			
-			dist = math.sqrt(b**2 + c**2 - 2*b*c*math.cos(1/180 * math.pi))
-			#print(i , dist)
+	# 		dist = math.sqrt(b**2 + c**2 - 2*b*c*math.cos(1/180 * math.pi))
+	# 		#print(i , dist)
 			
-			if i == 1:
-				prevdist = dist
-			else:
-				if dist - prevdist > maxdiff:
-					#xy of b
-					x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-					y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-					#xy of c
-					x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
-					y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+	# 		if i == 1:
+	# 			prevdist = dist
+	# 		else:
+	# 			if dist - prevdist > maxdiff:
+	# 				#xy of b
+	# 				x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+	# 				y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+	# 				#xy of c
+	# 				x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+	# 				y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
 					
-					a = self.lidarvalues[i-1]
-					x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
-					y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+	# 				a = self.lidarvalues[i-1]
+	# 				x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+	# 				y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
 					
-					if angle_between_points(x1, y1, x2, y2, x3, y3) < 140:
-						maxdiff = dist - prevdist
-						maxloc = i
+	# 				if angle_between_points(x1, y1, x2, y2, x3, y3) < 140:
+	# 					maxdiff = dist - prevdist
+	# 					maxloc = i
 					
-				prevdist = dist
+	# 			prevdist = dist
 		
-		self.ballLocation[0] = maxloc
-		print(maxloc, maxdiff)
+	# 	self.ballLocation[0] = maxloc
+	# 	print(maxloc, maxdiff)
 			
-    
+	def drawLines(self):
+		lines = [0] * 5
+		weirdpoints = []
+		count = 0
+		start = 0
+		startx = 0
+		starty = 0
+		for i in range(self.startangle+1, self.endangle):
+			#xy of b
+			b = self.lidarvalues[i]
+			x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+			y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+			#xy of c
+			c = self.lidarvalues[i]
+			x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+			y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+
+			a = self.lidarvalues[i-1]
+			x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+			y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+
+			if i == 0:
+				startx, starty = x2, y2
+   
+			angle = angle_between_points(x1, y1, x2, y2, x3, y3)
+		
+			if angle <= 190 or angle >= 170:
+				pass
+			else:
+				if i - start >= 10:
+					lines[count] = [(startx, starty), (x2, y2)]
+					count += 1
+					start = i + 1
+					startx, starty = x3, y3
+				else:
+					weirdpoints.append((startx, starty))
+		return (lines, weirdpoints)
   
 	def visualiseThread(self):
 		pygame.init()
@@ -180,17 +216,12 @@ class LD19:
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 			
-			# for i in self.obstacles:
-			# 	x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-			# 	y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-			# 	pygame.draw.circle(self.screen, "blue", (x, y), 2)
-			# print(list(self.obstacles))
-			
-			ballLoc = self.ballLocation[0]
-			x = (self.lidarvalues[ballLoc] * 0.3 * math.cos(ballLoc/360 * 2 * math.pi + (math.pi))) + 360
-			y = (self.lidarvalues[ballLoc] * 0.3 * math.sin(ballLoc/360 * 2 * math.pi + (math.pi))) + 360
-			pygame.draw.circle(self.screen, "blue", (x, y), 5)
-			#print(self.ballLocation)
+			lines, weirdpoints = self.drawLines()
+			for l in lines:
+				pygame.draw.line(self.screen, "yellow", l[0], l[1])
+
+			for w in weirdpoints:
+				pygame.draw.circle(self.screen, "blue", w, 4)
    
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
