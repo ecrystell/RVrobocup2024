@@ -1,16 +1,51 @@
 from LD19 import LD19
 from robot import Robot
+import cv2
 import time
 import serial
+import numpy as np
 
 
 lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 robot = Robot('/dev/serial0')
 lidar.visualise(0, 180)
+time.sleep(2)
+img = cv2.imread("screenshot.jpg")
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+edges = cv2.Canny(gray, 50, 200)
+# cv2.imshow("edges", edges)
+lines = cv2.HoughLines(edges, 3, np.pi/180, 110)
 
-while True:
-	for i in range(179):
-		print(i, lidar.getReading(i))
+if lines is None:
+	pass
+else:
+	for line in lines:
+		# ~ x1,x2,y1,y2 = line[0]
+		# ~ cv2.line(img,(x1,y1), (x2,y2), (0,255,0), 2)
+		rho,theta = line[0]
+		a = np.cos(theta)
+		b = np.sin(theta)
+		x0 = a*rho
+		y0 = b*rho
+		x1 = int(x0 + 1000*(-b))
+		y1 = int(y0 + 1000*(a))
+		x2 = int(x0 - 1000*(-b))
+		y2 = int(y0 - 1000*(a))
+		
+		cv2.line(img,(x1,y1), (x2,y2), (0,255,0), 2)
+	
+
+cv2.imshow("img", img)
+cv2.waitKey(0)
+#cv2.imshow("lines", lines)
+	
+
+	
+	
+
+# ~ while True:
+	# ~ for i in range(179):
+		# ~ print(i, lidar.getReading(i))
 	# pointgroup = []
 	# pointcount = 0
 	# for i in range(179):

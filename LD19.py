@@ -73,6 +73,7 @@ class LD19:
 			print("unable to initialize")
 		self.readLidar = multiprocessing.Process(target = self.readData)
 		self.readLidar.start()
+		self.ss = 0
 	def terminate(self):
 		self.readLidar.terminate()
 		self.visualisethread.terminate()
@@ -223,29 +224,36 @@ class LD19:
 		while running:
 			self.screen.fill("white")
 			pygame.draw.circle(self.screen, "green", (360, 360), 10)
-			pygame.draw.arc(self.screen, "blue", ((0,0),(720,720)), 0, math.pi)
+			#pygame.draw.arc(self.screen, "blue", ((0,0),(720,720)), 0, math.pi)
 			for i in range(self.startangle, self.endangle):
 				x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 			
-			self.drawLines()
-			for i in range(len(self.linestarts)):
-				if self.lineends[i] == 0:
-					break
-				start = self.linestarts[i]
-				startx = (self.lidarvalues[start] * 0.3 * math.cos(start/360 * 2 * math.pi + (math.pi))) + 360
-				starty = (self.lidarvalues[start] * 0.3 * math.sin(start/360 * 2 * math.pi + (math.pi))) + 360
+			# ~ self.drawLines()
+			# ~ for i in range(len(self.linestarts)):
+				# ~ if self.lineends[i] == 0:
+					# ~ break
+				# ~ start = self.linestarts[i]
+				# ~ startx = (self.lidarvalues[start] * 0.3 * math.cos(start/360 * 2 * math.pi + (math.pi))) + 360
+				# ~ starty = (self.lidarvalues[start] * 0.3 * math.sin(start/360 * 2 * math.pi + (math.pi))) + 360
 				
-				end = self.lineends[i]
-				endx = (self.lidarvalues[end] * 0.3 * math.cos(end/360 * 2 * math.pi + (math.pi))) + 360
-				endy = (self.lidarvalues[end] * 0.3 * math.sin(end/360 * 2 * math.pi + (math.pi))) + 360
-				print("line at", start, end)
-				pygame.draw.line(self.screen, "blueviolet", (startx, starty), (endx, endy), 3)
+				# ~ end = self.lineends[i]
+				# ~ endx = (self.lidarvalues[end] * 0.3 * math.cos(end/360 * 2 * math.pi + (math.pi))) + 360
+				# ~ endy = (self.lidarvalues[end] * 0.3 * math.sin(end/360 * 2 * math.pi + (math.pi))) + 360
+				# ~ print("line at", start, end)
+				# ~ pygame.draw.line(self.screen, "blueviolet", (startx, starty), (endx, endy), 3)
 
 			# ~ for w in self.weirdpoints:
 				# ~ pygame.draw.circle(self.screen, "blue", w, 4)
-   
+			if self.ss == 0:
+				# ~ rect = pygame.Rect(0, 0, 750, 750)
+				# ~ sub = self.screen.subsurface(rect)
+				# ~ screenshot = pygame.Surface((750,750))
+				# ~ screenshot.blit(sub, (0,0))
+				pygame.image.save(self.screen, "screenshot.jpg")
+				self.ss = 1
+				
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					running = False
@@ -254,9 +262,9 @@ class LD19:
 			self.clock.tick(60)  
 	
 		pygame.quit()
-  
-
-        
+ 
+ 
+ 
 if __name__ == "__main__":
 	# offset is to change the starting degree
 	# if place the lidar right side up, 0 is left side clockwise to 360, so flip is 0 to 360 anticlockwise
@@ -264,6 +272,7 @@ if __name__ == "__main__":
 	# use pygame to draw on the screen from 0 to 180
 	#this function is now non-blocking
 	lidar.visualise(10, 170) 
+	
     # use the lidar to check whether the left side or right side got more space to go
 	count = 0
 	while True:
