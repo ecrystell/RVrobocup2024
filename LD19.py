@@ -33,6 +33,7 @@ class LD19:
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
 		self.obstacles = multiprocessing.Array('i',range(3))
+		self.ballLocation = 0
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -104,15 +105,17 @@ class LD19:
 	
 	def getObstacle(self):
 		threshold = 100
-		count = 0
+		distances = []
+		prevdiff = 0
 		for i in range(self.startangle, self.endangle-1):
 			b = self.lidarvalues[i]
 			c = self.lidarvalues[i+1]
 			dist = math.sqrt(b**2 + c**2 - 2*b*c*math.cos(1/180 * math.pi))
-			if dist > threshold:
-				self.obstacles[count] = i
-				count+= 1
-				
+			distances.append(dist)
+			if dist - distances[i-1] > prevdiff + threshold:
+				self.ballLocation = i
+				break
+			prevdiff = dist - distances[i-1]
     
   
 	def visualiseThread(self):
@@ -129,12 +132,16 @@ class LD19:
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 			
-			for i in self.obstacles:
-				x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-				pygame.draw.circle(self.screen, "blue", (x, y), 2)
-			print(list(self.obstacles))
-
+			# for i in self.obstacles:
+			# 	x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+			# 	y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+			# 	pygame.draw.circle(self.screen, "blue", (x, y), 2)
+			# print(list(self.obstacles))
+			x = (self.lidarvalues[self.ballLocation] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+			y = (self.lidarvalues[self.ballLocation] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+			pygame.draw.circle(self.screen, "blue", (x, y), 2)
+			print(self.ballLocation)
+   
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					running = False
