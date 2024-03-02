@@ -27,13 +27,36 @@ def process_stream(byte_stream):
         readings.append({'reading': reading, 'intensity': intensity})
     return readings
 
+import math
+
+def angle_between_points(x1, y1, x2, y2, x3, y3):
+
+
+  # Calculate the vectors from the second point to the other two points
+	v1 = (x1 - x2, y1 - y2)
+	v2 = (x3 - x2, y3 - y2)
+
+  # Calculate the dot product and magnitude of the vectors
+	dot_product = v1[0] * v2[0] + v1[1] * v2[1]
+	magnitude_v1 = math.sqrt(v1[0] ** 2 + v1[1] ** 2)
+	magnitude_v2 = math.sqrt(v2[0] ** 2 + v2[1] ** 2)
+
+  # Prevent division by zero
+	if magnitude_v1 == 0 or magnitude_v2 == 0:
+		return 0
+
+  # Apply the cosine rule to find the angle in radians
+	angle_radians = math.acos(dot_product / (magnitude_v1 * magnitude_v2))
+
+  # Convert the angle to degrees and return
+	return math.degrees(angle_radians) % 180
+
 
 class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
-		self.obstacles = multiprocessing.Array('i',range(3))
-		self.ballLocation = 0
+		self.ballLocation = multiprocessing.Array('i',range(1))
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -89,7 +112,7 @@ class LD19:
 
 	def getReading(self, angle): # returns distance from the dot, one dot every degree
 		return self.lidarvalues[angle]
-	def visualise(self, startangle = 0, endangle = 360):
+	def visualise(self, startangle = 0, endangle = 180):
 		if not self.visualisation:
 			self.startangle = (startangle) % 360
 			self.endangle = (endangle) % 360
@@ -104,18 +127,43 @@ class LD19:
 			self.visualisation = False
 	
 	def getObstacle(self):
-		threshold = 100
-		distances = []
-		prevdiff = 0
-		for i in range(self.startangle, self.endangle-1):
+		threshold = 50
+		prevdist = 0
+		maxdiff = 0
+		maxloc = 0
+		for i in range(self.startangle+1, self.endangle-1):
+			
 			b = self.lidarvalues[i]
 			c = self.lidarvalues[i+1]
+			
+			
 			dist = math.sqrt(b**2 + c**2 - 2*b*c*math.cos(1/180 * math.pi))
-			distances.append(dist)
-			if dist - distances[i-1] > prevdiff + threshold:
-				self.ballLocation = i
-				break
-			prevdiff = dist - distances[i-1]
+			#print(i , dist)
+			
+			if i == 1:
+				prevdist = dist
+			else:
+				if dist - prevdist > maxdiff:
+					#xy of b
+					x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+					y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+					#xy of c
+					x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+					y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+					
+					a = self.lidarvalues[i-1]
+					x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+					y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+					
+					if angle_between_points(x1, y1, x2, y2, x3, y3) < 140:
+						maxdiff = dist - prevdist
+						maxloc = i
+					
+				prevdist = dist
+		
+		self.ballLocation[0] = maxloc
+		print(maxloc, maxdiff)
+			
     
   
 	def visualiseThread(self):
@@ -137,10 +185,12 @@ class LD19:
 			# 	y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 			# 	pygame.draw.circle(self.screen, "blue", (x, y), 2)
 			# print(list(self.obstacles))
-			x = (self.lidarvalues[self.ballLocation] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-			y = (self.lidarvalues[self.ballLocation] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-			pygame.draw.circle(self.screen, "blue", (x, y), 2)
-			print(self.ballLocation)
+			
+			ballLoc = self.ballLocation[0]
+			x = (self.lidarvalues[ballLoc] * 0.3 * math.cos(ballLoc/360 * 2 * math.pi + (math.pi))) + 360
+			y = (self.lidarvalues[ballLoc] * 0.3 * math.sin(ballLoc/360 * 2 * math.pi + (math.pi))) + 360
+			pygame.draw.circle(self.screen, "blue", (x, y), 5)
+			#print(self.ballLocation)
    
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -164,6 +214,7 @@ if __name__ == "__main__":
 	count = 0
 	while True:
 		lidar.getObstacle()
+		time.sleep(1)
 		try:
 			pass
 		except KeyboardInterrupt:
