@@ -31,6 +31,8 @@ turnright = False
 
 def clamp(n, smallest, largest):
     return max(smallest, min(n, largest))
+
+
 while True:
 		
 	_, original = cap.read()
@@ -81,7 +83,7 @@ while True:
 
 		# check if green is behind black line
 		checkimage = image[100:200, x_grn:(x_grn+w_grn)]
-		checkGreen = cv2.inRange(checkimage, (0,0,0), (180,255,50))
+		checkGreen = cv2.inRange(checkimage, (0,0,0), (255,255,60))
 		checkGreen = cv2.erode(checkGreen, kernel, iterations=5)
 		checkGreen = cv2.dilate(checkGreen, kernel, iterations=9)
 		contours_chk, hierarchy_chk = cv2.findContours(checkGreen.copy(),cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -94,9 +96,7 @@ while True:
 			else:
 				Greendected = True
 				# im not gonna lie i dunno why the checkgreen works so if it doesnt send help
-				#xchk, ychk , wchk, hchk = cv2.boundingRect(contours_chk[0])
-				#centerx_chk = int(xchk + (wchk/2))  	   
-				#cv2.line(image, (centerx_chk, 100), (centerx_chk, 200-y_grn),(0,255,0),3)
+				
 		
 		cv2.rectangle(image, (x_grn, y_grn+250), (x_grn+w_grn, y_grn+h_grn+250), (255, 0, 0), 2) 
 	if contours_blk_len > 0 :
