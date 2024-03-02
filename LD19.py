@@ -48,14 +48,16 @@ def angle_between_points(x1, y1, x2, y2, x3, y3):
 	angle_radians = math.acos(dot_product / (magnitude_v1 * magnitude_v2))
 
   # Convert the angle to degrees and return
-	return math.degrees(angle_radians) % 180
+	return math.degrees(angle_radians) % 360
         
 
 class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
-		self.ballLocation = multiprocessing.Array('i',range(1))
+		self.linestarts = multiprocessing.Array('i',range(10))
+		self.lineends = multiprocessing.Array('i',range(10))
+		self.weirdpoints = multiprocessing.Array('i',range(180))
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -165,10 +167,13 @@ class LD19:
 	# 	print(maxloc, maxdiff)
 			
 	def drawLines(self):
-		lines = [0] * 5
-		weirdpoints = []
-		count = 0
-		start = 0
+		# linestarts -> degree of start of a line
+		# lineends -> degree of end of a line
+		# weirdpoints -> points that dont fit into any line
+		
+		countw = 0 # indexing weirdpoints array
+		count = 0 # indexing lines array
+		start = self.startangle
 		startx = 0
 		starty = 0
 		for i in range(self.startangle+1, self.endangle):
@@ -176,31 +181,39 @@ class LD19:
 			b = self.lidarvalues[i]
 			x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 			y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+		
 			#xy of c
-			c = self.lidarvalues[i]
+			c = self.lidarvalues[i+1]
 			x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
 			y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
 
+			#xy of a
 			a = self.lidarvalues[i-1]
 			x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
 			y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
 
-			if i == 0:
-				startx, starty = x2, y2
-   
 			angle = angle_between_points(x1, y1, x2, y2, x3, y3)
-		
-			if angle <= 190 or angle >= 170:
-				pass
-			else:
-				if i - start >= 10:
-					lines[count] = [(startx, starty), (x2, y2)]
+			print(i, angle)
+			
+			#supposed to be if the angle is about 180 then continue the line
+			if angle <= 200 and angle >= 120:
+				continue
+			else: # line has ended
+				if i - start >= 20: # if there are more than 20 points in the line 
+					self.linestarts[count] = start
+					self.lineends[count] = i
+					print(self.lineends[count])
 					count += 1
 					start = i + 1
-					startx, starty = x3, y3
-				else:
-					weirdpoints.append((startx, starty))
-		return (lines, weirdpoints)
+							
+				else: # short lines, points that dont belong anywhere
+					self.weirdpoints[countw] = start
+					countw += 1
+					start = i+1
+					
+		print(self.weirdpoints[0])
+					
+		
   
 	def visualiseThread(self):
 		pygame.init()
@@ -216,12 +229,22 @@ class LD19:
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 			
-			lines, weirdpoints = self.drawLines()
-			for l in lines:
-				pygame.draw.line(self.screen, "yellow", l[0], l[1])
+			self.drawLines()
+			for i in range(len(self.linestarts)):
+				if self.lineends[i] == 0:
+					break
+				start = self.linestarts[i]
+				startx = (self.lidarvalues[start] * 0.3 * math.cos(start/360 * 2 * math.pi + (math.pi))) + 360
+				starty = (self.lidarvalues[start] * 0.3 * math.sin(start/360 * 2 * math.pi + (math.pi))) + 360
+				
+				end = self.lineends[i]
+				endx = (self.lidarvalues[end] * 0.3 * math.cos(end/360 * 2 * math.pi + (math.pi))) + 360
+				endy = (self.lidarvalues[end] * 0.3 * math.sin(end/360 * 2 * math.pi + (math.pi))) + 360
+				print("line at", start, end)
+				pygame.draw.line(self.screen, "blueviolet", (startx, starty), (endx, endy), 3)
 
-			for w in weirdpoints:
-				pygame.draw.circle(self.screen, "blue", w, 4)
+			# ~ for w in self.weirdpoints:
+				# ~ pygame.draw.circle(self.screen, "blue", w, 4)
    
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -240,11 +263,10 @@ if __name__ == "__main__":
 	lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) 
 	# use pygame to draw on the screen from 0 to 180
 	#this function is now non-blocking
-	lidar.visualise(0, 180) 
+	lidar.visualise(10, 170) 
     # use the lidar to check whether the left side or right side got more space to go
 	count = 0
 	while True:
-		lidar.getObstacle()
 		time.sleep(1)
 		try:
 			pass
