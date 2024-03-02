@@ -32,6 +32,7 @@ class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
+		self.obstacles = multiprocessing.Array('i',range(3))
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -100,13 +101,20 @@ class LD19:
 		if self.visualisation:
 			self.visualisethread.terminate()
 			self.visualisation = False
-		
+	
+	def getObstacle(self):
+		threshold = 40
+		self.obstacles = []
+		for i in range(self.startangle, self.endangle-1):
+			if self.getReading(i+1) - self.getReading(i) > threshold:
+				self.obstacles.append(i)
+    
+  
 	def visualiseThread(self):
 		pygame.init()
 		self.screen = pygame.display.set_mode((720, 720))
 		self.clock = pygame.time.Clock()
 		running = True
-		points = [0] * 360
 		while running:
 			self.screen.fill("white")
 			pygame.draw.circle(self.screen, "green", (360, 360), 10)
@@ -116,6 +124,11 @@ class LD19:
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 			
+			for o in self.obstacles:
+				x = (self.lidarvalues[o] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+				y = (self.lidarvalues[o] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+				pygame.draw.circle(self.screen, "blue", (x, y), 2)
+
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					running = False
@@ -124,6 +137,8 @@ class LD19:
 			self.clock.tick(60)  
 	
 		pygame.quit()
+  
+
         
 if __name__ == "__main__":
 	# offset is to change the starting degree
@@ -135,6 +150,7 @@ if __name__ == "__main__":
     # use the lidar to check whether the left side or right side got more space to go
 	count = 0
 	while True:
+		lidar.getObstacle()
 		try:
 			pass
 		except KeyboardInterrupt:
