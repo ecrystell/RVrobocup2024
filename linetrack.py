@@ -155,11 +155,10 @@ while True:
 		
 	if Greendected : 
 
-
-		 if centerx_grn > (x_min):
+		if centerx_grn > (x_min):
 		 	cv2.putText(image, "Turn Right", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-		 	turnright = True
-		 elif centerx_grn < (x_min) :
+			turnright = True
+		elif centerx_grn < (x_min) :
 		 	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
 		 	turnleft = True
 	if run:
@@ -180,12 +179,11 @@ while True:
 			time.sleep(3)
 			turnleft = False
 		 
-		
 		#if centerx_grn > (x_min):
 		#	cv2.putText(image, "Turn Right", (100,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
 		#elif centerx_grn < (x_min) :
 		#	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-
+		
 	cv2.imshow("orginal", Blackline)		
 	cv2.imshow("orginal with line", image)	
 	key = cv2.waitKey(1) & 0xFF	

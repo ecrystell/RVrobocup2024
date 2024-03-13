@@ -5,92 +5,120 @@ import time
 import serial
 import numpy as np
 import math
+import pygame
 
-def findeqns(x1, y1, x2, y2):
-	gradient = (y2-y1) / (x2-x1)
-	yintercept = y1 - (gradient * x1)
-	return (gradient, yintercept)
 	
 lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 robot = Robot('/dev/serial0')
 lidar.visualise(0, 180)
-time.sleep(2)
-img = cv2.imread("screenshot.jpg")
-gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-edges = cv2.Canny(gray, 50, 200)
-# cv2.imshow("edges", edges)
-lines = cv2.HoughLines(edges, 3, np.pi/180, 110)
-weirdpts = []
-start = 0
-
-if lines is None:
-	print("no img")
-else:
-	for line in lines:
-		# ~ x1,x2,y1,y2 = line[0]
-		
-		rho,theta = line[0]
-		a = np.cos(theta)
-		b = np.sin(theta)
-		x0 = a*rho
-		y0 = b*rho
-		x1 = int(x0 + 1000*(-b))
-		y1 = int(y0 + 1000*(a))
-		x2 = int(x0 - 1000*(-b))
-		y2 = int(y0 - 1000*(a))
-		
-		cv2.line(img,(x1,y1), (x2,y2), (0,255,0), 2)
-		gradient, yintercept = findeqns(x1,y1,x2,y2)
-		for i in range(start, 180):
-			dist = lidar.lidarvalues[i]
-			pointx = (dist * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-			pointy = (dist * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-			
-			perpenddist = abs(( gradient * pointx - pointy + yintercept)/(gradient**2 +1) ** 0.5)
-			if perpenddist > 10:
-				if i - start < 20:
-					weirdpts.append(i)
-				start = i
-				break
-
-cv2.imshow("img", img)
-cv2.waitKey(0)
-#cv2.imshow("lines", lines)
 	
+def find_best_fit_line(points):
+    # Convert the list of points into NumPy arrays
+    points = np.array(points)
+    
+    # Compute the centroid of the points
+    centroid = np.mean(points, axis=0)
+    
+    # Compute the covariance matrix of the points
+    covariance_matrix = np.cov(points, rowvar=False)
+    
+    # Compute the eigenvalues and eigenvectors of the covariance matrix
+    eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
+    
+    # Sort the eigenvalues and corresponding eigenvectors in descending order
+    sorted_indices = np.argsort(eigenvalues)[::-1]
+    sorted_eigenvalues = eigenvalues[sorted_indices]
+    sorted_eigenvectors = eigenvectors[:, sorted_indices]
+    
+    # Choose the eigenvector corresponding to the smallest eigenvalue as the direction of the line
+    direction = sorted_eigenvectors[:, 1]  # Assuming the smallest eigenvalue corresponds to the second eigenvector
+    
+    # Compute the coefficients of the line equation (Ax + By + C = 0) using the direction vector and the centroid
+    A, B = direction
+    C = -(A * centroid[0] + B * centroid[1])
+    
+	return A, B, C
 
-	
-	
+def point_line_distance(point, A, B, C):
+    # Calculate the distance from the point to the line using the formula
+    distance = abs(A*point[0] + B*point[1] + C) / np.sqrt(A*2 + B*2)
+    return distance
 
-# ~ while True:
-	# ~ for i in range(179):
-		# ~ print(i, lidar.getReading(i))
-	# pointgroup = []
-	# pointcount = 0
-	# for i in range(179):
-		# distance = lidar.getReading(i)-lidar.getReading(i+1)
-		# if distance < 30:
-			# pointcount = pointcount + 1
-		# else:
-			# if pointcount < 8 and len(pointgroup) > 0:
-				# pointgroup[-1] += pointcount
-			# else:
-				# pointgroup.append(pointcount)
-			# pointcount = 0
-	#print(pointgroup)
-	#print(lidar.getReading(90))
-	# try:	
-		# lidarwall = lidar.getReading(140)
-		# lidarstop = lidar.getReading(90)
-		# error = lidarwall - 300
-		# P = error * 0.3
-		# if lidarstop < 150:
-			# robot.move(0,0)
-		# else :
-			# robot.move(60+P, 60-P)
-	# except KeyboardInterrupt:
-		# robot.move(0,0)
-		# break
-    # values = [0] * 12
-    # for i in range (12):
-        # values[i] = lidar.getReading(180+ i*12)
-    # print(values)
+def distance(point1, point2):
+    return((point1[0]-point2[0])*2 + (point1[1]-point2[1])2)*0.5
+
+def RANSAC(laserdata, samples, maxDist, numberOfPoints=11): #samples is number of consec points to find best fit line
+    lines = []
+    laserdataLength = len(laserdata)
+    associatedReadings = [0] * len(laserdata)
+    startpoint = 0
+    while startpoint< len(laserdata):
+        for i in range(startpoint, laserdataLength):
+            if associatedReadings[i] == 0: 
+                startpoint = i
+                break
+            if i == laserdataLength:
+                startpoint = laserdataLength
+        if startpoint+ samples > laserdataLength-1:
+            # print("no more samples")
+            break
+        a, b, c = find_best_fit_line(laserdata[startpoint:startpoint+samples]) # a b c is vector coords
+        numpointsonline = 0
+        linepoints = []
+        for i in range(startpoint, startpoint+samples):
+            if point_line_distance(laserdata[i], a, b, c) < maxDist: # check distance to line
+                numpointsonline += 1
+                linepoints.append(laserdata[i])
+                associatedReadings[i] = 1
+        if numpointsonline > numberOfPoints: # how many points u need to be on a line to be a line
+            cluster = numberOfPoints
+            clusterpoints = []
+            tempassosciatedReadings = []
+            for i in range(startpoint + samples, len(laserdata)):
+                if point_line_distance(laserdata[i], a, b, c) < maxDist:
+                    if distance(laserdata[i], linepoints[-1]) > 30: #if first point of new cluster, far away from old cluster
+                        cluster = 0
+                        clusterpoints = []
+                        clusterpoints.append(laserdata[i])
+                        tempassosciatedReadings.append(i)
+                    else:   # if there is a new cluster, we want multiple points in close proximity 
+                        cluster += 1
+                        if cluster < 3: # if there is less than 3 in the cluster, it may not be considered as in the same line as the current best fit, so take notes of it temporaryily first
+                            tempassosciatedReadings.append(i)
+                            clusterpoints.append(laserdata[i])
+                        elif cluster == 3: # if cluster == 3, it is quite confirmed that it is on the line, add points and find new best fit
+                            clusterpoints.append(laserdata[i])
+                            tempassosciatedReadings.append(i)
+                            linepoints.extend(clusterpoints)
+                            for i in tempassosciatedReadings:
+                                associatedReadings[i] = 1
+                            a, b, c = find_best_fit_line(linepoints)
+                        else: #cluster more than 5 keep adding to line 
+                            linepoints.append(laserdata[i])
+                            associatedReadings[i] = 1
+                            a, b, c = find_best_fit_line(linepoints)
+            if distance(linepoints[0], linepoints[-1])> 50: # check distance of the line, if its long enough
+                lines.append((a, b, c))
+        startpoint += 2
+	return lines
+	
+def draw_lines(self, lines, color=(255, 255, 255), linewidth=2):
+        width  = 1200
+        center = (0,0)
+        
+        for A, B, C in lines:
+            if B == 0:
+                # Handle the case when B is zero (line is horizontal)
+                x = -C / A
+                pygame.draw.line(self.map, color, (x, 0), (x, 600), linewidth)
+            else:
+                m = -A / B  # Slope
+                b = -C / B  # y-intercept
+                # Calculate two points on the line for drawing
+                x1 = 0
+                y1 = int(m * x1 + b)
+                x2 = 1200 - 1
+                y2 = int(m * x2 + b)
+            
+                # Draw the line on the screen
+                pygame.draw.line(self.map, color, (x1 + center[0], y1 + center[1]), (x2 + center[0], y2 + center[1]), linewidth)

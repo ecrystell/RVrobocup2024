@@ -4,6 +4,7 @@ import threading
 import pygame
 import math
 import multiprocessing
+import numpy as np
 
 def convert (bytestream):
     lsb = bytestream[0]
@@ -55,9 +56,7 @@ class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
-		self.linestarts = multiprocessing.Array('i',range(10))
-		self.lineends = multiprocessing.Array('i',range(10))
-		self.weirdpoints = multiprocessing.Array('i',range(180))
+		self.lines = multiprocessing.Array('i', range(10))
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -129,93 +128,116 @@ class LD19:
 			self.visualisation = False
  
  
-	# def getObstacle(self):
-	# 	threshold = 50
-	# 	prevdist = 0
-	# 	maxdiff = 0
-	# 	maxloc = 0
-	# 	for i in range(self.startangle+1, self.endangle-1):
-			
-	# 		b = self.lidarvalues[i]
-	# 		c = self.lidarvalues[i+1]
-			
-			
-	# 		dist = math.sqrt(b**2 + c**2 - 2*b*c*math.cos(1/180 * math.pi))
-	# 		#print(i , dist)
-			
-	# 		if i == 1:
-	# 			prevdist = dist
-	# 		else:
-	# 			if dist - prevdist > maxdiff:
-	# 				#xy of b
-	# 				x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-	# 				y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-	# 				#xy of c
-	# 				x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
-	# 				y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
-					
-	# 				a = self.lidarvalues[i-1]
-	# 				x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
-	# 				y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
-					
-	# 				if angle_between_points(x1, y1, x2, y2, x3, y3) < 140:
-	# 					maxdiff = dist - prevdist
-	# 					maxloc = i
-					
-	# 			prevdist = dist
+	def find_best_fit_line(points):
+		# Convert the list of points into NumPy arrays
+		points = np.array(points)
 		
-	# 	self.ballLocation[0] = maxloc
-	# 	print(maxloc, maxdiff)
-			
-	def drawLines(self):
-		# linestarts -> degree of start of a line
-		# lineends -> degree of end of a line
-		# weirdpoints -> points that dont fit into any line
+		# Compute the centroid of the points
+		centroid = np.mean(points, axis=0)
 		
-		countw = 0 # indexing weirdpoints array
-		count = 0 # indexing lines array
-		start = self.startangle
-		startx = 0
-		starty = 0
-		for i in range(self.startangle+1, self.endangle):
-			#xy of b
-			b = self.lidarvalues[i]
-			x2 = (b * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-			y2 = (b * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+		# Compute the covariance matrix of the points
+		covariance_matrix = np.cov(points, rowvar=False)
 		
-			#xy of c
-			c = self.lidarvalues[i+1]
-			x3 = (c * 0.3 * math.cos((i+1)/360 * 2 * math.pi + (math.pi))) + 360
-			y3 = (c * 0.3 * math.sin((i+1)/360 * 2 * math.pi + (math.pi))) + 360
+		# Compute the eigenvalues and eigenvectors of the covariance matrix
+		eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
+		
+		# Sort the eigenvalues and corresponding eigenvectors in descending order
+		sorted_indices = np.argsort(eigenvalues)[::-1]
+		sorted_eigenvalues = eigenvalues[sorted_indices]
+		sorted_eigenvectors = eigenvectors[:, sorted_indices]
+		
+		# Choose the eigenvector corresponding to the smallest eigenvalue as the direction of the line
+		direction = sorted_eigenvectors[:, 1]  # Assuming the smallest eigenvalue corresponds to the second eigenvector
+		
+		# Compute the coefficients of the line equation (Ax + By + C = 0) using the direction vector and the centroid
+		A, B = direction
+		C = -(A * centroid[0] + B * centroid[1])
+		return A, B, C
 
-			#xy of a
-			a = self.lidarvalues[i-1]
-			x1 = (a * 0.3 * math.cos((i-1)/360 * 2 * math.pi + (math.pi))) + 360
-			y1 = (a * 0.3 * math.sin((i-1)/360 * 2 * math.pi + (math.pi))) + 360
+	def point_line_distance(self, point, A, B, C):
+		# Calculate the distance from the point to the line using the formula
+		distance = abs(A*point[0] + B*point[1] + C) / np.sqrt(A*2 + B*2)
+		return distance
 
-			angle = angle_between_points(x1, y1, x2, y2, x3, y3)
-			print(i, angle)
-			
-			#supposed to be if the angle is about 180 then continue the line
-			if angle <= 200 and angle >= 120:
-				continue
-			else: # line has ended
-				if i - start >= 20: # if there are more than 20 points in the line 
-					self.linestarts[count] = start
-					self.lineends[count] = i
-					print(self.lineends[count])
-					count += 1
-					start = i + 1
-							
-				else: # short lines, points that dont belong anywhere
-					self.weirdpoints[countw] = start
-					countw += 1
-					start = i+1
-					
-		print(self.weirdpoints[0])
+	def distance(self, point1, point2):
+		return ((point1[0]-point2[0])*2 + (point1[1]-point2[1])*2)*0.5
+
+	def RANSAC(self, laserdata, samples, maxDist, numberOfPoints=11): #samples is number of consec points to find best fit line
+		lines = []
+		laserdataLength = len(laserdata)
+		associatedReadings = [0] * len(laserdata)
+		startpoint = 0
+		while startpoint< len(laserdata):
+			for i in range(startpoint, laserdataLength):
+				if associatedReadings[i] == 0: 
+					startpoint = i
+					break
+				if i == laserdataLength:
+					startpoint = laserdataLength
+			if startpoint+ samples > laserdataLength-1:
+				# print("no more samples")
+				break
+			a, b, c = self.find_best_fit_line(laserdata[startpoint:startpoint+samples]) # a b c is vector coords
+			numpointsonline = 0
+			linepoints = []
+			for i in range(startpoint, startpoint+samples):
+				if self.point_line_distance(laserdata[i], a, b, c) < maxDist: # check distance to line
+					numpointsonline += 1
+					linepoints.append(laserdata[i])
+					associatedReadings[i] = 1
+			if numpointsonline > numberOfPoints: # how many points u need to be on a line to be a line
+				cluster = numberOfPoints
+				clusterpoints = []
+				tempassosciatedReadings = []
+				for i in range(startpoint + samples, len(laserdata)):
+					if self.point_line_distance(laserdata[i], a, b, c) < maxDist:
+						if self.distance(laserdata[i], linepoints[-1]) > 30: #if first point of new cluster, far away from old cluster
+							cluster = 0
+							clusterpoints = []
+							clusterpoints.append(laserdata[i])
+							tempassosciatedReadings.append(i)
+						else:   # if there is a new cluster, we want multiple points in close proximity 
+							cluster += 1
+							if cluster < 3: # if there is less than 3 in the cluster, it may not be considered as in the same line as the current best fit, so take notes of it temporaryily first
+								tempassosciatedReadings.append(i)
+								clusterpoints.append(laserdata[i])
+							elif cluster == 3: # if cluster == 3, it is quite confirmed that it is on the line, add points and find new best fit
+								clusterpoints.append(laserdata[i])
+								tempassosciatedReadings.append(i)
+								linepoints.extend(clusterpoints)
+								for i in tempassosciatedReadings:
+									associatedReadings[i] = 1
+								a, b, c = self.find_best_fit_line(linepoints)
+							else: #cluster more than 5 keep adding to line 
+								linepoints.append(laserdata[i])
+								associatedReadings[i] = 1
+								a, b, c = self.find_best_fit_line(linepoints)
+				if self.distance(linepoints[0], linepoints[-1])> 50: # check distance of the line, if its long enough
+					lines.append((a, b, c))
+			startpoint += 2
+		self.lines = lines
 					
 		
-  
+	def draw_lines(self, lines, color=(255, 255, 255), linewidth=2):
+		width  = 1200
+		center = (0,0)
+		for A, B, C in lines:
+			if B == 0:
+                # Handle the case when B is zero (line is horizontal)
+				x = -C / A
+				pygame.draw.line(self.map, color, (x, 0), (x, 720), linewidth)
+			else:
+				m = -A / B  # Slope
+				b = -C / B  # y-intercept
+				# Calculate two points on the line for drawing
+				x1 = 0
+				y1 = int(m * x1 + b)
+				x2 = 720 - 1
+				y2 = int(m * x2 + b)
+
+				# Draw the line on the screen
+				pygame.draw.line(self.map, color, (x1 + center[0], y1 + center[1]), (x2 + center[0], y2 + center[1]), linewidth)
+
 	def visualiseThread(self):
 		pygame.init()
 		self.screen = pygame.display.set_mode((720, 720))
@@ -225,34 +247,15 @@ class LD19:
 			self.screen.fill("white")
 			pygame.draw.circle(self.screen, "green", (360, 360), 10)
 			#pygame.draw.arc(self.screen, "blue", ((0,0),(720,720)), 0, math.pi)
+			laserdata = []
 			for i in range(self.startangle, self.endangle):
 				x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
-			
-			# ~ self.drawLines()
-			# ~ for i in range(len(self.linestarts)):
-				# ~ if self.lineends[i] == 0:
-					# ~ break
-				# ~ start = self.linestarts[i]
-				# ~ startx = (self.lidarvalues[start] * 0.3 * math.cos(start/360 * 2 * math.pi + (math.pi))) + 360
-				# ~ starty = (self.lidarvalues[start] * 0.3 * math.sin(start/360 * 2 * math.pi + (math.pi))) + 360
-				
-				# ~ end = self.lineends[i]
-				# ~ endx = (self.lidarvalues[end] * 0.3 * math.cos(end/360 * 2 * math.pi + (math.pi))) + 360
-				# ~ endy = (self.lidarvalues[end] * 0.3 * math.sin(end/360 * 2 * math.pi + (math.pi))) + 360
-				# ~ print("line at", start, end)
-				# ~ pygame.draw.line(self.screen, "blueviolet", (startx, starty), (endx, endy), 3)
+				laserdata.append([x,y])
 
-			# ~ for w in self.weirdpoints:
-				# ~ pygame.draw.circle(self.screen, "blue", w, 4)
-			if self.ss == 0:
-				# ~ rect = pygame.Rect(0, 0, 750, 750)
-				# ~ sub = self.screen.subsurface(rect)
-				# ~ screenshot = pygame.Surface((750,750))
-				# ~ screenshot.blit(sub, (0,0))
-				pygame.image.save(self.screen, "screenshot.jpg")
-				self.ss = 1
+			self.RANSAC(laserdata, 5, 10, 11)
+			self.draw_lines(self.lines)
 				
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
