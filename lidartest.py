@@ -2,7 +2,7 @@ from LD19 import LD19
 from robot import Robot
 import time
 import serial
-import np
+import numpy as np
 import pygame
 import math
 import cv2
@@ -14,6 +14,7 @@ resolution = (320, 240)
 cap.set(3, resolution[0]) 
 cap.set(4, resolution[0]) 
 
+lidar.visualise(0, 180)
 time.sleep(2)
 
 def findBall(laserdata, lines):
@@ -24,13 +25,13 @@ def findBall(laserdata, lines):
 		for A,B,C in lines:
 			dist = lidar.point_line_distance([x,y], A,B,C)
 			
-			if dist < 5:
+			if dist < 15:
 				online = True
 				break
 		if online == False:
 			ballpts.append(i)
 			
-	print(ballpts)
+	# ~ print(ballpts)
 	# use p turning to adjust ball to angle the ball is at
 	if len(ballpts) > 1:
 		ballstart = ballpts[0]
@@ -46,49 +47,96 @@ def findBall(laserdata, lines):
 				x2, y2 = laserdata[ballend]
 				dist = lidar.distance([x1,y1],[x2,y2])
 				# ~ print(dist)
-				if dist > 1 and dist < 13.5:
+				if dist > 1:
 					ball = (ballstart+ballend)//2
 					return ball
 				else:
 					ballstart = ballend
+	return -1
 
-
-
+ball = -1
+samples = 12
+maxdist = 17
+noofpoints = 6
+direction = -1
 laserdata = lidar.getLaserXY()
-lines = lidar.RANSAC(laserdata, 15, 15, 14)
+lines = lidar.RANSAC(laserdata, samples, maxdist, noofpoints)
 ball = findBall(laserdata, lines)
-lidar.ball = ball
+lidar.ball[0] = ball
 print(ball)
 
-lidar.visualise(0, 180)
-while not(ball < 95 and ball > 85):
-    lidar.ball = ball
-    robot.move(ball-90, -(ball-90))
+if lidar.getReading(10) > lidar.getReading(170):
+	direction = -1
+else:
+	direction = 1
 
 ballseen = False
-while not(ballseen):
-	robot.move(30, 30)
+prevcenterx = -1
+while True:
+	laserdata = lidar.getLaserXY()
+	lines = lidar.RANSAC(laserdata, samples, maxdist, noofpoints)
+	ball = findBall(laserdata, lines)
+	lidar.ball[0] = ball
 	_, original = cap.read()
+	image = original
+	
+	if ball == -1:
+		print('looking for ball')
+		robot.move(direction*35, direction*35*-1)
+		print(ball)
 
-	image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-	gray = cv2.medianBlur(gray, 5)
-
-	rows = gray.shape[0]
-	circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, rows / 8)
-
-
-	if circles is not None:
-		circles = np.uint16(np.around(circles))
-		ballseen = True
-	for i in circles[0, :]:
-		center = (i[0], i[1])
-		# circle center
-		cv2.circle(image, center, 1, (0, 100, 100), 3)
-		# circle outline
-		radius = i[2]
-		cv2.circle(image, center, radius, (255, 0, 255), 3)
+	elif not(ball < 100 and ball > 80) and prevcenterx == -1:
+		print('turning to ball')
+		speed = ball-90
+		if abs(ball-90) < 30:
+			if ball-90 > 0:
+				speed = 30
+			else:
+				speed = -30
 		
+		robot.move(speed, -speed)
 
+	elif not(ballseen):
+		print('seeing for ball')
+		gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+		gray = cv2.medianBlur(gray, 5)
+
+		
+		circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,1,100,param1=50,param2=30,minRadius=0,maxRadius=0)
+		kp = 1.3
+
+		if circles is not None:
+			circles = np.uint16(np.around(circles))
+			print("circle seen")
+			for i in circles[0, :]:
+				print(i[2])
+				if i[2] > 90:
+					
+					#ballseen = True
+					print("ball found")
+					prevcenterx = i[0]
+					center = (i[0], i[1])
+					# circle center
+					cv2.circle(image, center, 1, (0, 100, 100), 3)
+					# circle outline
+					radius = i[2]
+					cv2.circle(image, center, radius, (255, 0, 255), 3)	
+					break
+				
+		if prevcenterx == -1 or lidar.getReading(ball) > 50:
+			robot.move(50, 50)
+		else:
+			error = 160 - prevcenterx
+			
+			robot.move(50+error*kp, 50-error*kp)
+		if lidar.getReading(ball) < 10:
+			robot.move(0,0)
+		
+			break
+		
+	else:
+		robot.move(0,0)
 	cv2.imshow("detected circles", image)
-	cv2.waitKey(0)
-robot.move(0,0)
+	if cv2.waitKey(1) == ord('q'):
+		break
+

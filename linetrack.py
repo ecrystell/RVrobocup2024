@@ -157,7 +157,7 @@ while True:
 
 		if centerx_grn > (x_min):
 		 	cv2.putText(image, "Turn Right", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
-			turnright = True
+		 	turnright = True
 		elif centerx_grn < (x_min) :
 		 	cv2.putText(image, "Turn Left", (50,180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,255,0),3)
 		 	turnleft = True
@@ -166,7 +166,6 @@ while True:
 			r.movedegrees(50,50,20)
 			r.movedegrees(-50, 50, 35)
 			time.sleep(3)
-			
 			uturn = False
 		elif turnright:
 			r.movedegrees(50,50,20)

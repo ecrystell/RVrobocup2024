@@ -56,7 +56,7 @@ class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
-		self.ball = multiprocessing.Array('i', range(1))
+		self.ball = multiprocessing.Array('i', range(2))
 		self.queue = multiprocessing.Queue()
 		self.port = port
 		self.flip = flip
@@ -273,7 +273,7 @@ class LD19:
 	
 	def getLaserXY(self):
 		laserdata = []
-		for i in range(self.startangle, self.endangle):
+		for i in range(0, 180):
 			x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 			y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 			laserdata.append([x,y])
@@ -297,13 +297,16 @@ class LD19:
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
 				
-
-			lines = queue.get()
-			self.draw_lines(lines, "blue")
+			try:
+				lines = queue.get()
+				self.draw_lines(lines, "blue")
+				x = (self.lidarvalues[self.ball[0]] * 0.3 * math.cos(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
+				y = (self.lidarvalues[self.ball[0]] * 0.3 * math.sin(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
+				pygame.draw.circle(self.screen, "brown", (x, y), 10)
+			except:
+				pass
    
-			x = (self.lidarvalues[self.ball[0]] * 0.3 * math.cos(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
-			y = (self.lidarvalues[self.ball[0]] * 0.3 * math.sin(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
-			pygame.draw.circle(self.screen, "brown", (x, y), 10)
+			
    
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
