@@ -56,7 +56,8 @@ class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
 		self.readings = [0]* 360
 		self.lidarvalues = multiprocessing.Array('i',range(360))
-		# ~ self.lines = multiprocessing.Array('i', range(10))
+		self.ball = multiprocessing.Array('i', range(1))
+		self.queue = multiprocessing.Queue()
 		self.port = port
 		self.flip = flip
 		self.offsetdeg = offsetdeg
@@ -116,12 +117,11 @@ class LD19:
 	def visualise(self, startangle = 0, endangle = 180):
 		
 		if not self.visualisation:
-			# ~ queue = multiprocessing.Queue()
-			# ~ queue.put(self.lines)
+			
 			self.startangle = (startangle) % 360
 			self.endangle = (endangle) % 360
 			# starts a separate thread by itself when run
-			self.visualisethread =  multiprocessing.Process(target = self.visualiseThread)
+			self.visualisethread =  multiprocessing.Process(target = self.visualiseThread, args=(self.queue,))
 			self.visualisethread.start()
 		else:
 			print("visualisation already started")
@@ -129,8 +129,7 @@ class LD19:
 		if self.visualisation:
 			self.visualisethread.terminate()
 			self.visualisation = False
- 
- 
+    
 	def find_best_fit_line(self, points):
 		# Convert the list of points into NumPy arrays
 		points = np.array(points)
@@ -166,7 +165,7 @@ class LD19:
 		return ((point1[0]-point2[0])**2 + (point1[1]-point2[1])**2)**0.5
 
 	def RANSAC(self, laserdata, samples, maxDist, numberOfPoints=11): #samples is number of consec points to find best fit line
-		numpointsonlinelst = []
+		
 		lines = []
 		laserdataLength = len(laserdata)
 		associatedReadings = [0] * len(laserdata)
@@ -242,27 +241,18 @@ class LD19:
 				
 				if self.distance(linepoints[0], linepoints[-1])> 30: # check distance of the line, if its long enough
 					a, b, c = self.find_best_fit_line(linepoints[:-1])
-					pygame.draw.circle(self.screen, colours[j], linepoints[0], 5)
-					pygame.draw.circle(self.screen, colours[j], linepoints[-2], 10)
+					# pygame.draw.circle(self.screen, colours[j], linepoints[0], 5)
+					# pygame.draw.circle(self.screen, colours[j], linepoints[-2], 10)
 					
-					j+=1
-					j %= len(colours)
-					
+					# j+=1
+					# j %= len(colours)
 					lines.append((a, b, c))
 			startpoint += samples
-		# ~ for i in range(len(lines)):
-			# ~ self.lines[i] = lines[i]
-		
-		# ~ print(lines)
-		#print(numpointsonlinelst)
-		#print(startpts)
+		self.queue.put(lines)
 		return lines
-		
-					
+			
 		
 	def draw_lines(self, lines, color=(0, 0, 0), linewidth=2):
-		
-		width  = 1200
 		center = (0,0)
 		for A, B, C in lines:
 			if B == 0:
@@ -280,8 +270,16 @@ class LD19:
 
 				# Draw the line on the screen
 				pygame.draw.line(self.screen, color, (x1 + center[0], y1 + center[1]), (x2 + center[0], y2 + center[1]), linewidth)
+	
+	def getLaserXY(self):
+		laserdata = []
+		for i in range(self.startangle, self.endangle):
+			x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
+			y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
+			laserdata.append([x,y])
+		return laserdata
 
-	def visualiseThread(self):
+	def visualiseThread(self, queue):
 		
 		pygame.init()
 		self.screen = pygame.display.set_mode((720, 720))
@@ -293,62 +291,20 @@ class LD19:
 			pygame.draw.line(self.screen, "gray", (0,0),(360,360), 2)
 			pygame.draw.line(self.screen, "gray", (360,360),(720,0), 2)
 			#pygame.draw.arc(self.screen, "blue", ((0,0),(720,720)), 0, math.pi)
-			laserdata = []
+			
 			for i in range(self.startangle, self.endangle):
 				x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 				pygame.draw.circle(self.screen, "red", (x, y), 2)
-				laserdata.append([x,y])
+				
 
-			lines = self.RANSAC(laserdata, 15, 15, 14)
-			# ~ print(lines)
-			# ~ print(len(lines))
+			lines = queue.get()
 			self.draw_lines(lines, "blue")
-			ballpts = []
-			
-			for i in range(45,135):
-				x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
-				y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
-				online = False
-				for A,B,C in lines:
-					dist = self.point_line_distance([x,y], A,B,C)
-					
-					if dist < 5:
-						online = True
-						break
-				if online == False:
-					ballpts.append(i)
-					
-			print(ballpts)
-			# use p turning to adjust ball to angle the ball is at
-			if len(ballpts) > 1:
-				ballstart = ballpts[0]
-				ballend = 0
-				ball = -1
-				for i in range(len(ballpts)-1):
-					if (ballpts[i] + 1 != ballpts[i+1]) or (i == len(ballpts)-2):
-						if i == len(ballpts)-2:
-							ballend = ballpts[-1]
-						else:
-							ballend = ballpts[i]
-						
-						x1 = (self.lidarvalues[ballstart] * 0.3 * math.cos(ballstart/360 * 2 * math.pi + (math.pi))) + 360
-						y1 = (self.lidarvalues[ballstart] * 0.3 * math.sin(ballstart/360 * 2 * math.pi + (math.pi))) + 360
-						
-						x2 = (self.lidarvalues[ballend] * 0.3 * math.cos(ballend/360 * 2 * math.pi + (math.pi))) + 360
-						y2 = (self.lidarvalues[ballend] * 0.3 * math.sin(ballend/360 * 2 * math.pi + (math.pi))) + 360
-						
-						dist = self.distance([x1,y1],[x2,y2])
-						# ~ print(dist)
-						if dist > 1 and dist < 13.5:
-							ball = (ballstart+ballend)//2
-							pygame.draw.circle(self.screen, "brown", (x1, y1), 10)
-							break
-						else:
-							ballstart = ballend
-						
-				print(ball)
-			
+   
+			x = (self.lidarvalues[self.ball[0]] * 0.3 * math.cos(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
+			y = (self.lidarvalues[self.ball[0]] * 0.3 * math.sin(self.ball[0]/360 * 2 * math.pi + (math.pi))) + 360
+			pygame.draw.circle(self.screen, "brown", (x, y), 10)
+   
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					running = False
@@ -368,9 +324,7 @@ if __name__ == "__main__":
 	#this function is now non-blocking
 	lidar.visualise(0, 180) 
 	
-	
-	
-	
+
     # use the lidar to check whether the left side or right side got more space to go
 	count = 0
 	while True:
