@@ -2,6 +2,13 @@ import cv2
 import numpy as np
 import time
 
+# how to use!!
+# 1. run the program
+# 2. move all max sliders to max
+# 3. move each min slider up until u see the tape
+# 4. move each max slider down until u cannot see the tape
+
+
 def do_nothing():
     pass
 

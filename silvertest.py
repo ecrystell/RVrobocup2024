@@ -20,13 +20,12 @@ while True:
 	_, original = cap.read()
 	
 	image = original[0:270, 0:320]
-	edges = cv2.Canny(image,100,200)
-	cv2.imshow("edges", edges)
+	#edges = cv2.Canny(image,100,200)
+	#cv2.imshow("edges", edges)
 	cv2.imshow("image", image)
 	
 	key = cv2.waitKey(1) & 0xFF	
 	
 	#keys to interact with code 
 	if key == ord("q"): #q: exit program 
-		r.move(0, 0)
 		break
