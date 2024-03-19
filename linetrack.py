@@ -32,7 +32,38 @@ turnright = False
 def clamp(n, smallest, largest):
     return max(smallest, min(n, largest))
 
+#  for linetracking split into 2 regions
+#  find black line in both regions, compare the errors in both regions, if any error is 0, just move forward
 
+''' top and bottom is 100px tall
+	if abs(top) > abs(btm):
+		error = btm
+	else:
+		error = top
+	if greensquare on top:
+		error = 0
+		if can check above the green square:
+			check whether need turn 
+
+	for obstacle
+
+	check 10 degrees near 90, whether they are below threshold
+	check 10 degrees left and right, check which average above threshold
+
+	evaczone
+	1. enter zone
+	2. look for ball
+	3. pick up ball
+	4. go center
+	5. repeat 2 to 4
+	6. (if camera is good enuf) look for triangle colours
+	7. go to triangle n deposit ball
+	8. go center
+	9. repeat 6 and 7
+	10. walltrack to find exit
+
+	
+'''
 while True:
 		
 	_, original = cap.read()
