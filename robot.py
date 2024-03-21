@@ -28,6 +28,15 @@ class Robot:
 		s = "D " + str(clamp(int(lspeed), -255, 255)) + " " + str(clamp(int(rspeed), -255, 255)) + " " + str(degrees) + "\r\n"
 		self.ser.write(s.encode("utf-8"))
 
-	def grabber(self, pos):
-		s = "G " + str(clamp(int(pos), 0, 180)) + "\r\n"
-		self.ser.write(s.encode("utf-8"))
+	def grabber(self, curr, target):
+		if target > curr:
+			for i in range(curr, target,3):
+				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
+				self.ser.write(s.encode("utf-8"))
+				time.sleep(0.05)
+		else:
+			for i in range(curr, target, -3):
+				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
+				self.ser.write(s.encode("utf-8"))
+				time.sleep(0.05)
+		
