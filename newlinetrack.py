@@ -76,7 +76,7 @@ while True:
     contours_blkBtm, _ = cv2.findContours(bottomBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2:]
     contours_grn, _ = cv2.findContours(topGreen.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    if len(contours_blkTop) == 0 and len(contours_blkBtm) == 0:
+    if len(contours_blkTop) != 0 or len(contours_blkBtm) != 0:
         
         if len(contours_blkTop) == 0:
             contoursToCheck = [contours_blkBtm, ]
@@ -133,11 +133,23 @@ while True:
                 box = cv2.boxPoints(blackbox)
                 box = np.int0(box)
                 cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
+                    # cv2.putText(image,str(ang),(10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.putText(image, str(error), (10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+                cv2.line(image, (int(x_min), 200), (int(x_min), 250), (255, 0, 0), 3)
 
-        if abs(error[0]) > abs(error[1]):
-            error = error[1]
+        if len(errors) > 1:
+            if len(errors) == 1:
+                error = error[0]
+            if abs(error[0]) > abs(error[1]):
+                error = error[1]
+            else:
+                error = error[0]
+                
+        if run:
+            print("running")
+            r.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
         else:
-            error = error[0]
+            r.move(0, 0)
 
     if len(contours_grn) > 0:
         
@@ -167,15 +179,8 @@ while True:
 
             cv2.rectangle(image, (x_grn, y_grn + 250), (x_grn + w_grn, y_grn + h_grn + 250), (255, 0, 0), 2)
 
-    if run:
-        print("running")
-        r.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
-    else:
-        r.move(0, 0)
 
-    # cv2.putText(image,str(ang),(10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-    cv2.putText(image, str(error), (10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-    cv2.line(image, (int(x_min), 200), (int(x_min), 250), (255, 0, 0), 3)
+
 
     if Greendected : 
 
