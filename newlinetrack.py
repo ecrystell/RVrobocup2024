@@ -20,7 +20,7 @@ grayscale = False
 run = False
 time.sleep(1)
 speed = 50
-kp = 1.5  # was 0.8
+kp = 1.5 # was 0.8
 r = Robot('/dev/serial0')
 lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 Greendected = False
@@ -29,6 +29,7 @@ y_min = 160
 uturn = False
 turnleft = False
 turnright = False
+error = 0
 
 
 def clamp(n, smallest, largest):
@@ -48,28 +49,28 @@ def checkObstacle():
         else:
             # hard code pls
             pass
+            
     
         
 
 
 while True:
-    checkObstacle()
+    #checkObstacle()
     _, original = cap.read()
 
     image = original
-
     Greendected = False
     if grayscale:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        Blackline = cv2.inRange(image, (0), (50))
+        Blackline = cv2.inRange(image, (0), (55))
     else:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         bottom = image[220:320, 0:320]
         top = image[120:220, 0:320]
 
-        bottomBlack = cv2.inRange(bottom, (0, 0, 0), (255, 255, 60))
-        topBlack = cv2.inRange(top, (0, 0, 0), (255, 255, 60))
-        topGreen = cv2.inRange(top, (20, 130, 70), (90, 255, 255))
+        bottomBlack = cv2.inRange(bottom, (0, 0, 0), (255, 255, 70))
+        topBlack = cv2.inRange(top, (0, 0, 0), (255, 255, 70))
+        topGreen = cv2.inRange(top, (10, 110, 85), (70, 180, 240))
 
         kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
         topGreen = cv2.erode(topGreen, kernel, iterations=5)  # eroding and dilating
@@ -82,62 +83,97 @@ while True:
 
         if len(contours_red) > 0:  # see red line stop n break
             r.move(0, 0)
-            break
+            run = False
 
     kernel = np.ones((3, 3), np.uint8)
-    topBlack = cv2.erode(topBlack, kernel, iterations=6)
-    topBlack = cv2.dilate(topBlack, kernel, iterations=10)
-    bottomBlack = cv2.erode(bottomBlack, kernel, iterations=6)
-    bottomBlack = cv2.dilate(bottomBlack, kernel, iterations=10)
+    topBlack = cv2.erode(topBlack, kernel, iterations=5)
+    topBlack = cv2.dilate(topBlack, kernel, iterations=9)
+    bottomBlack = cv2.erode(bottomBlack, kernel, iterations=5)
+    bottomBlack = cv2.dilate(bottomBlack, kernel, iterations=9)
 
     if invert:
         Blackline = cv2.bitwise_not(Blackline)
-    contours_blkTop, _ = cv2.findContours(topBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2:]
-    contours_blkBtm, _ = cv2.findContours(bottomBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2:]
+    contours_blkTop, _ = cv2.findContours(topBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours_blkBtm, _ = cv2.findContours(bottomBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours_grn, _ = cv2.findContours(topGreen.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    if len(contours_blkTop) != 0 or len(contours_blkBtm) != 0:
-
-        if len(contours_blkTop) == 0:
-            contoursToCheck = [contours_blkBtm, ]
-        elif len(contours_blkBtm) == 0:
-            contoursToCheck = [contours_blkTop, ]
-        else:
-            contoursToCheck = [contours_blkTop, contours_blkBtm]
-
+    if len(contours_blkTop) > 0 or len(contours_blkBtm) > 0:
         errors = []
-        for contours in contoursToCheck:
-            contours_blk_len = len(contours)
-            if contours_blk_len == 1:
-                blackbox = cv2.minAreaRect(contours[0])
-            else:
-                canditates = []
-                off_bottom = 0
-                for con_num in range(contours_blk_len):
-                    blackbox = cv2.minAreaRect(contours[con_num])
-                    (x_min, y_min), (w_min, h_min), ang = blackbox
-                    box = cv2.boxPoints(blackbox)
-                    (x_box, y_box) = box[0]
-                    # if y_box > 20 :
-                    off_bottom += 1
-                    canditates.append((y_box, con_num, x_min, y_min))
-                canditates = sorted(canditates)
-                # print(canditates)
-                if off_bottom > 1:
-                    canditates_off_bottom = []
-                    for con_num in range((contours_blk_len - off_bottom), contours_blk_len):
-                        (y_highest, con_highest, x_min, y_min) = canditates[con_num]
-                        total_distance = (abs(x_min - x_last) ** 2 + abs(y_min - y_last) ** 2) ** 0.5
-                        canditates_off_bottom.append((total_distance, con_highest))
-                    canditates_off_bottom = sorted(canditates_off_bottom)
-                    (total_distance, con_highest) = canditates_off_bottom[0]
-                    blackbox = cv2.minAreaRect(contours[con_highest])
-                else:
-                    print(canditates)
-                    (y_highest, con_highest, x_min, y_min) = canditates[-1]
-                    blackbox = cv2.minAreaRect(contours[con_highest])
-                (x_min, y_min), (w_min, h_min), ang = blackbox
-                # x_last = x_min
+        if len(contours_blkTop) == 0:
+            print('top nothing')
+            contoursToCheck = [contours_blkBtm, ]
+            x, y, w, h = cv2.boundingRect(contours_blkBtm[0])
+            centerx = int(x + (w//2))
+            cv2.line(image, (centerx, 250), (centerx, 300), (255,0,0), 3)
+            setpoint = resolution[0] / 2
+            error = int(x - setpoint)
+            print(error)
+            errors.append(error)
+        elif len(contours_blkBtm) == 0:
+            print('bottom nothing')
+            contoursToCheck = [contours_blkTop, ]
+            x, y, w, h = cv2.boundingRect(contours_blkTop[0])
+            centerx = int(x + (w//2))
+            cv2.line(image, (centerx, 150), (centerx, 200), (255,0,0), 3)
+            setpoint = resolution[0] / 2
+            error = int(x - setpoint)
+            print(error)
+            errors.append(error)
+        else:
+            print('both something!')
+            contoursToCheck = [contours_blkTop, contours_blkBtm]
+            x, y, w, h = cv2.boundingRect(contours_blkTop[0])
+            centerx = int(x + (w//2))
+            cv2.line(image, (centerx, 150), (centerx, 200), (255,0,0), 3)
+            setpoint = resolution[0] / 2
+            error = int(x - setpoint)
+            print(error)
+            errors.append(error)
+            
+            x, y, w, h = cv2.boundingRect(contours_blkBtm[0])
+            centerx = int(x + (w//2))
+            cv2.line(image, (centerx, 250), (centerx, 300), (255,0,0), 3)
+            setpoint = resolution[0] / 2
+            error = int(x - setpoint)
+            print(error)
+            errors.append(error)
+
+        
+        
+        # ~ for contours in contoursToCheck:
+            
+            # ~ contours_blk_len = len(contours)
+            # ~ if contours_blk_len == 1:
+                # ~ blackbox = cv2.minAreaRect(contours[0])
+            # ~ else:
+                
+                # ~ canditates = []
+                # ~ off_bottom = 0
+                # ~ for con_num in range(contours_blk_len):
+                    # ~ blackbox = cv2.minAreaRect(contours[con_num])
+                    # ~ (x_min, y_min), (w_min, h_min), ang = blackbox
+                    # ~ box = cv2.boxPoints(blackbox)
+                    # ~ (x_box, y_box) = box[0]
+                    # ~ # if y_box > 20 :
+                    # ~ off_bottom += 1
+                    # ~ canditates.append((y_box, con_num, x_min, y_min))
+                # ~ canditates = sorted(canditates)
+                # ~ # print(canditates)
+                # ~ if off_bottom > 1:
+                    # ~ canditates_off_bottom = []
+                    # ~ for con_num in range((contours_blk_len - off_bottom), contours_blk_len):
+                        # ~ (y_highest, con_highest, x_min, y_min) = canditates[con_num]
+                        # ~ total_distance = (abs(x_min - x_last) ** 2 + abs(y_min - y_last) ** 2) ** 0.5
+                        # ~ canditates_off_bottom.append((total_distance, con_highest))
+                    # ~ canditates_off_bottom = sorted(canditates_off_bottom)
+                    # ~ (total_distance, con_highest) = canditates_off_bottom[0]
+                    # ~ blackbox = cv2.minAreaRect(contours[con_highest])
+                # ~ else:
+                    # ~ print(canditates)
+                    # ~ (y_highest, con_highest, x_min, y_min) = canditates[-1]
+                    # ~ blackbox = cv2.minAreaRect(contours[con_highest])
+                # ~ (x_min, y_min), (w_min, h_min), ang = blackbox
+                # ~ # x_last = x_min
                 # y_last = y_min
                 # if ang < -45 :
                 # ang = 90 + ang
@@ -145,34 +181,39 @@ while True:
                 # ang = (90-ang)*-1
                 # if w_min > h_min and ang < 0:
                 # ang = 90 + ang
-                setpoint = resolution[0] / 2
-                error = int(x_min - setpoint)
-                errors.append(error)
+            # ~ setpoint = resolution[0] / 2
+            # ~ error = int(x - setpoint)
+            # ~ print(error)
+            # ~ errors.append(error)
 
-                ang = int(ang)
-                box = cv2.boxPoints(blackbox)
-                box = np.int0(box)
-                cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
+                # ~ ang = int(ang)
+                # ~ box = cv2.boxPoints(blackbox)
+                # ~ box = np.int0(box)
+                # ~ cv2.drawContours(image, [box], 0, (0, 0, 255), 3)
 
-                # cv2.putText(image,str(ang),(10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                cv2.putText(image, str(error), (10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-                cv2.line(image, (int(x_min), 200), (int(x_min), 250), (255, 0, 0), 3)
+                # ~ # cv2.putText(image,str(ang),(10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                
+                # ~ cv2.line(image, (int(x_min), 200), (int(x_min), 250), (255, 0, 0), 3)
 
         if len(errors) > 1:
             if len(errors) == 1:
-                error = error[0]
+                error = errors[0]
             else:
-                if abs(error[0]) > abs(error[1]):
-                    error = error[1]
+                if abs(errors[0]) > abs(errors[1]):
+                    error = errors[1]
                 else:
-                    error = error[0]
+                    error = errors[0]
+        else:
+            error = 0
 
         if run:
             print("running")
             r.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
+            cv2.putText(image, str(error), (10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         else:
             r.move(0, 0)
-
+    else:
+        print('where line')
     if len(contours_grn) > 0:
 
         # drawing rect around the green square
@@ -215,23 +256,28 @@ while True:
             turnleft = True
         if run:
             if uturn:
-                r.movedegrees(50, 50, 20)
+                r.movedegrees(50, 50, 25)
                 r.movedegrees(-50, 50, 35)
+                r.movedegrees(-50,-50, 15)
                 time.sleep(3)
                 uturn = False
+                
             elif turnright:
-                r.movedegrees(50, 50, 20)
+                r.movedegrees(50, 50, 25)
                 r.movedegrees(50, -50, 18)
+                r.movedegrees(-50,-50, 15)
                 time.sleep(3)
                 turnright = False
             elif turnleft:
-                r.movedegrees(50, 50, 20)
+                r.movedegrees(50, 50, 25)
                 r.movedegrees(-50, 50, 18)
+                r.movedegrees(-50,-50, 15)
                 time.sleep(3)
                 turnleft = False
 
 
-    cv2.imshow("orginal", Blackline)
+    cv2.imshow("top", topBlack)
+    cv2.imshow("btotom", bottomBlack)
     cv2.imshow("orginal with line", image)
     key = cv2.waitKey(1) & 0xFF
 

@@ -5,7 +5,7 @@ import time
 # how to use!!
 # 1. run the program
 # 2. move all max sliders to max
-# 3. move each min slider up until u see the tape
+# 3. move each min slider up until u see the tapep
 # 4. move each max slider down until u cannot see the tape
 
 
