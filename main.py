@@ -1,7 +1,6 @@
 import time
 import cv2
 import numpy as np
-import RPi.GPIO as GPIO
 import serial
 from robot import *
 from LD19 import LD19
