@@ -9,7 +9,7 @@ cap = cv2.VideoCapture(0)
 resolution = (320, 240)
 cap.set(3, resolution[0])
 cap.set(4, resolution[0])
-
+cap.set(cv2.CAP_PROP_AUTO_WB,0.0)
 time.sleep(2)
 
 x_last = resolution[0] / 2
@@ -19,12 +19,14 @@ grayscale = False
 run = False
 time.sleep(1)
 speed = 90
-kp = 2.5  # was 0.8
+kp = 2  # was 0.8
 kd = 0
-k = 4
+k = 0.1
+
 
 
 r = Robot('/dev/serial0')
+r.move(0,0)
 lidar = LD19('/dev/ttyAMA3', offsetdeg=0, flip=True)  # offsetddeg was -90
 Greendected = False
 x_min = 160
@@ -38,26 +40,30 @@ error = 0
 def clamp(n, smallest, largest):
 	return max(smallest, min(n, largest))
 
+def turn90(pos):
+	if pos == "left":
+		r.movedegrees(-90,90,10)
+		
 
 def checkObstacle():
-	obsThreshold = 55 #lidar reading 
+	obsThreshold = 40 #lidar reading 
 	minDeg = min(lidar.lidarvalues[80:100]) #take degree of lidar with smallest distance 
 	if minDeg < obsThreshold:
 		r.move(0, 0)
 		print('obstacle detected')
-		r.movedegrees(-50,-50,5)
+		r.movedegrees(-90,-90,5)
 		leftAvg = sum(lidar.lidarvalues[35:55]) / 20
 		rightAvg = sum(lidar.lidarvalues[125:145]) / 20
 		if leftAvg > rightAvg:
 			# uh hard code turn left
 			print('moving left')
-			r.movedegrees(-50, 50, 15)
+			r.movedegrees(-90, 90, 19)
 			# ~ r.movedegrees(50, 50, 10)
-			r.move(100, 70)
-			time.sleep(3)
+			r.move(100, 35)
+			time.sleep(2)
 			while True:
 				print('curvingg')
-				r.move(100, 70)
+				
 				
 				_, image = cap.read()
 				image = cv2.cvtColor(image[220:320, 0:320], cv2.COLOR_BGR2GRAY)
@@ -67,20 +73,22 @@ def checkObstacle():
 				Blackline = cv2.dilate(Blackline, kernel, iterations=9)
 				cv2.imshow("obs", Blackline)
 				cont, _ = cv2.findContours(Blackline.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-				if len(cont) > 0:
+				cont = sorted(cont, reverse=True, key=cv2.contourArea)
+				if len(cont) > 0 and cv2.contourArea(cont[0]) > 5000:
 					r.move(0, 0)
-					
+					r.movedegrees(100,35,15)
+					r.movedegrees(-90, 90, 19)
 					break
 
 		else:
 			# hard code pls
 			print('moving right')
-			r.movedegrees(50, -50, 15)
-			r.move(70, 100)
-			time.sleep(3)
+			r.movedegrees(90, -90, 19)
+			r.move(35, 100)
+			time.sleep(2)
 			while True:
 				print('curvingg')
-				r.move(70, 100)
+				
 				
 				_, image = cap.read()
 				image = cv2.cvtColor(image[220:320, 0:320], cv2.COLOR_BGR2GRAY)
@@ -89,16 +97,23 @@ def checkObstacle():
 				Blackline = cv2.erode(Blackline, kernel, iterations=5)
 				Blackline = cv2.dilate(Blackline, kernel, iterations=9)
 				cont, _ = cv2.findContours(Blackline.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+				cont = sorted(cont, reverse=True, key=cv2.contourArea)
 				cv2.imshow("obs", Blackline)
-				if len(cont) > 0:
-					r.move(0, 0)
+				if len(cont) > 0 and cv2.contourArea(cont[0]) > 5000:
 					
+					r.move(0, 0)
+					r.movedegrees(35,100,15)
+					r.movedegrees(90, -90, 19)
 					break
 
 prevError = 0
+count = 0
+errorSum = [0] * 10
 #r.grabber(0, 180)
+
 while True:
-	checkObstacle()
+	if run:
+		checkObstacle()
 	_, original = cap.read()
 
 	image = original
@@ -111,6 +126,24 @@ while True:
 		bottom = image[220:320, 0:320]
 		top = image[120:220, 0:320]
 		grnimg = image[120:320, 0:320]
+		
+		silver = cv2.inRange(image, (27, 15, 62), (255, 112, 122))
+		kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
+		silver = cv2.erode(silver, kernel, iterations=5)  # eroding and dilating
+		silver = cv2.dilate(silver, kernel, iterations=9)
+		contours_silv, _ = cv2.findContours(silver.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+		if len(contours_silv) > 0:
+			silverbox = cv2.minAreaRect(contours_silv[0])
+			(x,y), (w,h), ang = silverbox
+			print(w,h)
+			if w*h >= 5000 and (300<w<700) and (60<h<100):
+				
+				box = cv2.boxPoints(silverbox)
+				box = np.int0(box)
+				cv2.drawContours(image, [box], 0, (255,0,0), 3)
+				r.move(0,0)
+				run = False
+				
 		bottomBlack = cv2.inRange(bottom, (0, 0, 0), (255, 255, 70))
 		topBlack = cv2.inRange(top, (0, 0, 0), (255, 255, 70))
 		topGreen = cv2.inRange(grnimg, (40, 110, 80), (100, 255, 255))
@@ -124,10 +157,14 @@ while True:
 		Redline = cv2.dilate(Redline, kernel, iterations=9)
 		contours_red, _ = cv2.findContours(Redline.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-		if len(contours_red) > 0:  # see red line stop n break
+		if len(contours_red) > 0 and run:  # see red line stop n break
+			r.movedegrees(70, 70, 5)
 			r.move(0, 0)
 			print('red')
 			run = False
+		
+		
+			
 
 	kernel = np.ones((3, 3), np.uint8)
 	topBlack = cv2.erode(topBlack, kernel, iterations=5)
@@ -140,47 +177,53 @@ while True:
 	contours_blkTop, _ = cv2.findContours(topBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 	contours_blkBtm, _ = cv2.findContours(bottomBlack.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 	contours_grn, _ = cv2.findContours(topGreen.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
+	
+	contours_blkTop = sorted(contours_blkTop, reverse=True, key=cv2.contourArea)
+	contours_blkBtm = sorted(contours_blkBtm, reverse=True, key=cv2.contourArea)
 	if len(contours_blkTop) > 0 or len(contours_blkBtm) > 0:
+		
 		errors = []
 		if len(contours_blkTop) == 0:
 			# ~ print('top nothing')
-			contoursToCheck = [contours_blkBtm, ]
-			x, y, w, h = cv2.boundingRect(contours_blkBtm[0])
-			centerx = int(x + (w // 2))
-			cv2.line(image, (centerx, 250), (centerx, 300), (255, 0, 0), 3)
-			setpoint = resolution[0] / 2
-			error = int(centerx - setpoint)
-			#print(error)
-			errors.append(error)
+			if cv2.contourArea(contours_blkBtm[0]) >= 50:
+				
+				x,y,w,h = cv2.boundingRect(contours_blkBtm[0])
+				centerx = int(x + (w // 2))
+				cv2.line(image, (centerx, 250), (centerx, 300), (255, 0, 0), 3)
+				setpoint = resolution[0] / 2
+				error = int(centerx - setpoint)
+				#print(error)
+				errors.append(error)
 		elif len(contours_blkBtm) == 0:
-			# ~ print('bottom nothing')
-			contoursToCheck = [contours_blkTop, ]
-			x, y, w, h = cv2.boundingRect(contours_blkTop[0])
-			centerx = int(x + (w // 2))
-			cv2.line(image, (centerx, 150), (centerx, 200), (255, 0, 0), 3)
-			setpoint = resolution[0] / 2
-			error = int(centerx - setpoint)
-			#print(error)
-			errors.append(error)
+			if cv2.contourArea(contours_blkTop[0]) >= 50:
+				# ~ print('bottom nothing')
+				
+				x,y,w,h = cv2.boundingRect(contours_blkTop[0])
+				centerx = int(x + (w // 2))
+				cv2.line(image, (centerx, 150), (centerx, 200), (255, 0, 0), 3)
+				setpoint = resolution[0] / 2
+				error = int(centerx - setpoint)
+				#print(error)
+				errors.append(error)
 		else:
 			# ~ print('both something!')
-			contoursToCheck = [contours_blkTop, contours_blkBtm]
-			x, y, w, h = cv2.boundingRect(contours_blkTop[0])
-			centerx = int(x + (w // 2))
-			cv2.line(image, (centerx, 150), (centerx, 200), (255, 0, 0), 3)
-			setpoint = resolution[0]  /2
-			error = int(centerx - setpoint)          
-			#print(error)
-			errors.append(error)
-
-			x, y, w, h = cv2.boundingRect(contours_blkBtm[0])
-			centerx = int(x + (w // 2))
-			cv2.line(image, (centerx, 250), (centerx, 300), (255, 0, 0), 3)
-			setpoint = resolution[0] / 2
-			error = int(centerx - setpoint)
-			#print(error)
-			errors.append(error)
+			if cv2.contourArea(contours_blkTop[0]) >= 50:
+				
+				x, y, w, h = cv2.boundingRect(contours_blkTop[0])
+				centerx = int(x + (w // 2))
+				cv2.line(image, (centerx, 150), (centerx, 200), (255, 0, 0), 3)
+				setpoint = resolution[0]  /2
+				error = int(centerx - setpoint)          
+				#print(error)
+				errors.append(error)
+			if cv2.contourArea(contours_blkBtm[0]) >= 50:
+				x,y,w,h = cv2.boundingRect(contours_blkBtm[0])
+				centerx = int(x + (w // 2))
+				cv2.line(image, (centerx, 250), (centerx, 300), (255, 0, 0), 3)
+				setpoint = resolution[0] / 2
+				error = int(centerx - setpoint)
+				#print(error)
+				errors.append(error)
 
 		if len(errors) > 0:
 			if len(errors) == 1:
@@ -190,18 +233,24 @@ while True:
 					error = errors[1]
 				else:
 					error = errors[0]
+		else:
+			error = sum(errorSum) / 10
+			print(error, errorSum)
 			
 		# ~ cv2.putText(image, str(error), (10, 320), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 		if run:
 			#print("running")
 			P = error * kp
 			D = (error - prevError) * kd
+			errorSum[count] = abs(error)
+			count += 1
+			count %= 10
 			
 			if error != 0:
-				left = int(abs(speed/error)*k  + (P+D))
-				right = int(abs(speed/error)*k - (P+D))
-				print("error", error, "left", left, "right", right)
-				r.move(clamp(int(abs(speed/error)*k  + (P+D)), -255, 255), clamp(int(abs(speed/error)*k - (P+D)), -255, 255))
+				left = int(speed) + int(sum(errorSum)*k  + (P+D))
+				right = int(speed) + int(sum(errorSum)*k - (P+D))
+				#print("error", error, "left", left, "right", right)
+				r.move(clamp(int(speed) - sum(errorSum)*k  + (P+D), -255, 255), clamp(int(speed) - sum(errorSum)*k - (P+D), -255, 255))
 			else:
 				r.move(clamp(int(speed + (P+D)), -255, 255), clamp(int((speed) - (P+D)), -255, 255))
 			
@@ -216,14 +265,17 @@ while True:
 		# if more than 1 rectangle then uturn
 		# drawing rect around the green square
 		rects = []
+		allrects = []
 		for contour in contours_grn:
 			x_grn, y_grn, w_grn, h_grn = cv2.boundingRect(contour)
 			area = h_grn * w_grn
+			allrects.append([h_grn*w_grn, x_grn, y_grn, w_grn, h_grn])
 			if area > 2000 and y_grn > 50:
 				rects.append([h_grn*w_grn, x_grn, y_grn, w_grn, h_grn])
 				
 		sorted(rects, reverse = True)
-		print(rects)
+		sorted(allrects, reverse = True)
+		print(allrects)
 		
 		
 		if len(rects) > 0:
@@ -248,15 +300,15 @@ while True:
 			contours_chk, hierarchy_chk = cv2.findContours(checkGreen.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
 			if len(contours_chk) > 0:
-				if len(rects) == 2:
+				if len(allrects) >= 2:
 					
-					x_grn1 = rects[1][1]
-					#if x_grn - 20 < x_grn1 < x_grn + 20:
-					cv2.putText(image, "U-turn", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
-					uturn = True
-					Greendected = False
-					# ~ else:
-						# ~ Greendected = True
+					if rects[0][2] - 50 < allrects[1][2] < rects[0][2] + 50:
+						
+						# ~ cv2.putText(image, "U-turn", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+						uturn = True
+						Greendected = False
+					else:
+						Greendected = True
 				else:
 					Greendected = True
 
@@ -266,6 +318,7 @@ while True:
 	key = cv2.waitKey(1) & 0xFF
 	if Greendected:
 		Greendected = False
+		print(centerx_grn, centerx)
 		if centerx_grn > (centerx):
 			cv2.putText(image, "Turn Right", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 			turnright = True
@@ -274,8 +327,8 @@ while True:
 			turnleft = True
 		if run:
 			if uturn:
-				r.movedegrees(60, 60, 15)
-				r.movedegrees(-60, 60, 32)
+				r.movedegrees(90, 90, 15)
+				r.movedegrees(-60, 60, 40)
 				r.movedegrees(-60, -60, 5)
 				print('uturn')
 				time.sleep(5)
@@ -283,15 +336,15 @@ while True:
 
 			elif turnright:
 				r.movedegrees(60, 60, 17)
-				r.movedegrees(60, -60, 16)
-				r.movedegrees(-60, -60, 2)
+				r.movedegrees(60, -60, 19)
+				r.movedegrees(-60, -60, 5)
 				print('turnright')
 				time.sleep(5)
 				turnright = False
 			elif turnleft:
 				r.movedegrees(60, 60, 17)
-				r.movedegrees(-60, 60, 16)
-				r.movedegrees(-60, -60, 2)
+				r.movedegrees(-60, 60, 19)
+				r.movedegrees(-60, -60, 5)
 				print('turn left')
 				time.sleep(5)
 				turnleft = False
