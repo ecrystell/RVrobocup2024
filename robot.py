@@ -30,12 +30,12 @@ class Robot:
 
 	def grabber(self, curr, target):
 		if target > curr:
-			for i in range(curr, target,3):
+			for i in range(curr, target,10):
 				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
 				self.ser.write(s.encode("utf-8"))
 				time.sleep(0.05)
 		else:
-			for i in range(curr, target, -3):
+			for i in range(curr, target, -10):
 				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
 				self.ser.write(s.encode("utf-8"))
 				time.sleep(0.05)

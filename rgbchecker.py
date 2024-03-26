@@ -51,7 +51,7 @@ while True:
 
     # convert to HSV image
 	hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
+	# ~ hsv_img = img
 
     # create mask
 	mask = cv2.inRange(hsv_img, lower_bound, upper_bound)

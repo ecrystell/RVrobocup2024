@@ -9,15 +9,16 @@ import cv2
 
 lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 robot = Robot('/dev/serial0')
-robot.grabber(180, 0)
+#robot.grabber(180, 180)
 cap = cv2.VideoCapture(0)
 resolution = (320, 240)
 cap.set(3, resolution[0]) 
 cap.set(4, resolution[0]) 
-speed = 50
-kp = 1.5
+
 lidar.visualise(0, 180)
 time.sleep(2)
+green = False
+red = False
 
 def findCenter(threshold):
     robot.movedegrees(100, 100, 50)
@@ -94,27 +95,27 @@ def pickUpBall():
 		
 		if ball == -1:
 			print('looking for ball')
-			robot.move(direction*35, direction*35*-1)
+			robot.move(direction*70, direction*70*-1)
 			print(ball)
 
 		elif not(ball < 100 and ball > 80) and prevcenterx == -1:
 			print('turning to ball')
-			speed = ball-90
-			if abs(ball-90) < 30:
+			speed = (ball-90)*1.5
+			if abs(speed) < 70:
 				if ball-90 > 0:
-					speed = 30
+					speed = 70
 				else:
-					speed = -30
+					speed = -70
 			
 			robot.move(speed, -speed)
 
 		else: # ball is on lidar detection and in front of robot
 			print('seeing for ball')
 			gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-			gray = cv2.medianBlur(gray, 5)
+			graycircle = cv2.medianBlur(gray, 5)
 
 			
-			circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT,1,100,param1=50,param2=30,minRadius=0,maxRadius=0)
+			circles = cv2.HoughCircles(graycircle, cv2.HOUGH_GRADIENT,1,100,param1=50,param2=30,minRadius=0,maxRadius=0)
 			kp = 1.3
 
 			if circles is not None:
@@ -123,9 +124,18 @@ def pickUpBall():
 				for i in circles[0, :]:
 					print(i[2])
 					if i[2] > 90:
+						
 						#ballseen = True
 						print("ball found")
 						ballFound = True
+						black = cv2.inRange(gray, (0), (50))
+						contours, _ = cv2.findContours(black.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+						if len(contours) > 0:
+							print('black ball')
+							# turn sorter to black)
+						else:
+							print('silver ball')
+							# turn sorter to silver
 						prevcenterx = i[0]
 						center = (i[0], i[1])
 						# circle center
@@ -136,21 +146,28 @@ def pickUpBall():
 						break
 			
 			if prevcenterx == -1 or lidar.getReading(ball) > 50:
-				robot.move(50, 50)
+				robot.move(90, 90)
 			else:
 				error = 160 - prevcenterx
 				
-				robot.move(50+error*kp, 50-error*kp)
+				robot.move(90+error*kp, 90-error*kp)
 			
-			if lidar.getReading(ball) < 10:
+			if lidar.getReading(ball) < 4:
 				robot.move(0,0)
 				if ballFound:
+					robot.movedegrees(-90, -90, 25)
 					robot.grabber(0, 180)
+					robot.movedegrees(90, 90, 25)
 					robot.grabber(180, 0)
-					break
+					time.sleep(1)
+					robot.grabber(0, 100)
+					time.sleep(1)
+					robot.grabber(100, 0)
+					cv2.destroyAllWindows()
+					return
 				else:
-					robot.movedegrees(-70, -70, 50)
-					robot.movedegrees(-70, 70, 50)
+					robot.movedegrees(-90, -90, 30)
+					robot.movedegrees(-90, 90, 50)
 					prevcenterx = -1
 			
 		cv2.imshow("detected circles", image)
@@ -218,15 +235,57 @@ def findTriangle(green, red):
 
 
 		
-def wallTrack(threshold=40):
+def wallTrack(threshold=80):
+	speed = 90
+	kp = 1.5
+	if lidar.getReading(177) > threshold+100:
+		robot.movedegrees(90, -90, 19)
+		while lidar.getReading(90) > threshold+10:
+			robot.move(100, 100)
+		robot.movedegrees(-90,90,19)
 	while True:
-		right = lidar.getReading(175)
-		if right > 1000:
+		_, original = cap.read()
+		image = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
+		right = lidar.getReading(177)
+		front = lidar.getReading(90)
+		print(right, front)
+		if right > 1150 or front > 1150:
 			robot.move(0, 0)
 			print('exit??')
-			break
-		error = right - threshold
-		robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
+			return
+		if front < 120:
+			robot.move(0,0)
+			
+
+			greenimg = cv2.inRange(image, (35, 150, 45), (70, 160, 160))
+
+			kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
+			greenimg = cv2.erode(greenimg, kernel, iterations=5)  # eroding and dilating
+			greenimg = cv2.dilate(greenimg, kernel, iterations=9)
+			contours_grn, _ = cv2.findContours(greenimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+			redimg = cv2.inRange(image, (0, 120, 33), (50, 255, 255))
+			redimg = cv2.erode(redimg, kernel, iterations=5)  # eroding and dilating
+			redimg = cv2.dilate(redimg, kernel, iterations=9)
+			contours_red, _ = cv2.findContours(redimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+			if len(contours_grn) > 0 and not(green):
+				print('green triangle')
+				robot.move(0,0)
+				return
+			elif len(contours_red) > 0 and not(red):
+				print('red triangle')
+				robot.move(0,0)
+				return
+			else:
+				print('corner')
+				# ~ robot.movedegrees(-90, -90, 40)
+				robot.movedegrees(-90, 90, 19)
+		else:
+			error = right - threshold
+			robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
+		
+		cv2.imshow('image', image)
+		key = cv2.waitKey(1)
 		
 
 	
@@ -250,13 +309,16 @@ def test():
     distRobotToWall = 100
 
     if silver:
-        pickUpBall() # includes look for ball and pick up ball
-        findCenter(distRobotToWall)
-        pickUpBall()
-        findCenter(distRobotToWall)
-        findTriangle()
-        findCenter(distRobotToWall)
-        findTriangle()
-        findCenter()
+        # ~ pickUpBall() # includes look for ball and pick up ball
+        # ~ findCenter(distRobotToWall)
+        # ~ pickUpBall()
+        # ~ pickUpBall()
+        # ~ findCenter(distRobotToWall)
+        # ~ findTriangle()
+        # ~ findCenter(distRobotToWall)
+        # ~ findTriangle()
+        # ~ findCenter()
         wallTrack()
+        
+test()
         

@@ -15,7 +15,7 @@ time.sleep(2)
 x_last = resolution[0]/2
 y_last = resolution[0]/2
 invert = False
-grayscale = False
+grayscale = True
 run = False
 time.sleep(1)
 speed = 50
