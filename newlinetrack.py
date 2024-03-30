@@ -6,11 +6,11 @@ from robot import *
 from LD19 import LD19
 from coloursensor import TCS34725
 from evaczone import *
-import RPI.GPIO as GPIO
+import RPi.GPIO as GPIO
 
-GPIO.setwarnings(False) # Ignore warning for now
-GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
-GPIO.setup(20, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) 
+# ~ GPIO.setwarnings(False) # Ignore warning for now
+# ~ GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
+# ~ GPIO.setup(20, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) 
 
 cap = cv2.VideoCapture(0)
 resolution = (320, 240)
@@ -42,6 +42,8 @@ uturn = False
 turnleft = False
 turnright = False
 error = 0
+greentriangle = False
+redtriangle = False
 
 
 def clamp(n, smallest, largest):
@@ -125,7 +127,7 @@ r.ramp(94)
 r.grabber(180,0)
 
 while True:
-	run = (GPIO.input(20) == GPIO.HIGH)
+	# ~ run = (GPIO.input(20) == GPIO.HIGH)
 	if run:
 		checkObstacle()
 	_, original = cap.read()
@@ -468,11 +470,11 @@ while True:
 		k = k - 0.1
 		print("speed:" + str(speed) + "\tk:" + str(k))
 
-while run:
-    if run:
-    	pickUpBall(cap, lidar, r)
-		pass
-	if run:
-    	wallTrack(lidar, r)
-	
+#while run:
+	#if run:
+# ~ pickUpBall(cap, lidar, r)
+	#	pass
+	#if run:
+wallTrack(cap, lidar, r, False, False)
+r.move(0,0)
 # ~ pickUpBall(cap, lidar, r)
