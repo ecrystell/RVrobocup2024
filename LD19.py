@@ -7,26 +7,26 @@ import multiprocessing
 import numpy as np
 
 def convert (bytestream):
-    lsb = bytestream[0]
-    msb = bytestream[1]
-    reading = (msb << 8) | lsb
-    return reading
+	lsb = bytestream[0]
+	msb = bytestream[1]
+	reading = (msb << 8) | lsb
+	return reading
 
 def process_stream(byte_stream):
-    readings = []
-    # Iterate through the stream in steps of 3 bytes
-    for i in range(0, 36, 3):
-        # Extract LSB, MSB, and intensity
-        lsb = byte_stream[i]
-        msb = byte_stream[i + 1]
-        intensity = byte_stream[i + 2]
+	readings = []
+	# Iterate through the stream in steps of 3 bytes
+	for i in range(0, 36, 3):
+		# Extract LSB, MSB, and intensity
+		lsb = byte_stream[i]
+		msb = byte_stream[i + 1]
+		intensity = byte_stream[i + 2]
 
-        # Combine LSB and MSB to get the reading
-        reading = (msb << 8) | lsb
+		# Combine LSB and MSB to get the reading
+		reading = (msb << 8) | lsb
 
-        # Append the reading and intensity to the list
-        readings.append({'reading': reading, 'intensity': intensity})
-    return readings
+		# Append the reading and intensity to the list
+		readings.append({'reading': reading, 'intensity': intensity})
+	return readings
 
 import math
 
@@ -50,7 +50,7 @@ def angle_between_points(x1, y1, x2, y2, x3, y3):
 
   # Convert the angle to degrees and return
 	return math.degrees(angle_radians) % 360
-        
+		
 
 class LD19:
 	def __init__ (self, port, baud = 230400, offsetdeg = 0, flip = False):
@@ -129,7 +129,7 @@ class LD19:
 		if self.visualisation:
 			self.visualisethread.terminate()
 			self.visualisation = False
-    
+	
 	def find_best_fit_line(self, points):
 		# Convert the list of points into NumPy arrays
 		points = np.array(points)
@@ -174,6 +174,9 @@ class LD19:
 		startpts = []
 		colours = ["cyan", "magenta", "yellow", "green", "pink", "purple", "red"]
 		j=0
+		# ~ for i in range(startpoint, laserdataLength-1):
+			# ~ if laserdata[i] > 120:
+				# ~ associatedReadings[i] = 1
 		while startpoint< len(laserdata):
 			
 			count = 0
@@ -256,7 +259,7 @@ class LD19:
 		center = (0,0)
 		for A, B, C in lines:
 			if B == 0:
-                # Handle the case when B is zero (line is horizontal)
+				# Handle the case when B is zero (line is horizontal)
 				x = -C / A
 				pygame.draw.line(self.screen, color, (x, 0), (x, 720), linewidth)
 			else:
@@ -273,7 +276,13 @@ class LD19:
 	
 	def getLaserXY(self):
 		laserdata = []
+		prevnot1200 = 0
 		for i in range(0, 180):
+			if self.lidarvalues[i] >= 1000:
+				self.lidarvalues[i] = prevnot1200
+			else:
+				prevnot1200 = self.lidarvalues[i]
+				
 			x = (self.lidarvalues[i] * 0.3 * math.cos(i/360 * 2 * math.pi + (math.pi))) + 360
 			y = (self.lidarvalues[i] * 0.3 * math.sin(i/360 * 2 * math.pi + (math.pi))) + 360
 			laserdata.append([x,y])
@@ -328,7 +337,7 @@ if __name__ == "__main__":
 	lidar.visualise(0, 180) 
 	
 
-    # use the lidar to check whether the left side or right side got more space to go
+	# use the lidar to check whether the left side or right side got more space to go
 	count = 0
 	while True:
 		time.sleep(1)
@@ -340,3 +349,6 @@ if __name__ == "__main__":
 		# ~ if lidar.getReading(90) < 200:
 			# ~ print(count)
 			# ~ count += 1
+else:
+	pass
+	# ~ lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) 

@@ -28,15 +28,23 @@ class Robot:
 		s = "D " + str(clamp(int(lspeed), -255, 255)) + " " + str(clamp(int(rspeed), -255, 255)) + " " + str(degrees) + "\r\n"
 		self.ser.write(s.encode("utf-8"))
 
-	def grabber(self, curr, target):
+	def grabber(self, curr, target): # 0 up 180 down
 		if target > curr:
-			for i in range(curr, target,10):
-				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
+			for i in range(curr, target,5):
+				s = "G " + str(clamp(int(i), 0, 300)) + "\r\n"
 				self.ser.write(s.encode("utf-8"))
 				time.sleep(0.05)
 		else:
 			for i in range(curr, target, -10):
-				s = "G " + str(clamp(int(i), 0, 180)) + "\r\n"
+				s = "G " + str(clamp(int(i), 0, 300)) + "\r\n"
 				self.ser.write(s.encode("utf-8"))
 				time.sleep(0.05)
+				
+	def sorter(self, pos): # 90 to block left, 45 in middle, 0 to block right
+		s = "S " + str(clamp(int(pos), 0, 300)) + "\r\n"
+		self.ser.write(s.encode("utf-8"))
+	
+	def ramp(self, pos): # 94 is middle 55 block right 133 is block left
+		s = "R " + str(clamp(int(pos), 0, 300)) + "\r\n"
+		self.ser.write(s.encode("utf-8"))
 		

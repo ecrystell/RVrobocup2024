@@ -19,8 +19,10 @@ invert = False
 grayscale = False
 run = False
 time.sleep(1)
-speed = 50
-kp = 1.5  # was 0.8
+speed = 100
+kp = 1.7  # was 0.8
+kd = -1
+k = 0.15
 r = Robot('/dev/serial0')
 lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 Greendected = False
