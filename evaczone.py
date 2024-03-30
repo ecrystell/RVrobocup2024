@@ -188,66 +188,6 @@ def pickUpBall(cap, lidar, robot):
 			break
 	robot.move(0,0)
 	
-	
-def findTriangle(green, red):
-	while True:
-		_, original = cap.read()
-		image = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
-
-		topGreen = cv2.inRange(image, (20, 130, 70), (90, 255, 255))
-
-		kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
-		topGreen = cv2.erode(topGreen, kernel, iterations=5)  # eroding and dilating
-		topGreen = cv2.dilate(topGreen, kernel, iterations=9)
-		contours_grn, _ = cv2.findContours(topGreen.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-		Redline = cv2.inRange(image, (160, 75, 115), (180, 220, 255))
-		Redline = cv2.erode(Redline, kernel, iterations=5)  # eroding and dilating
-		Redline = cv2.dilate(Redline, kernel, iterations=9)
-		contours_red, _ = cv2.findContours(Redline.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-		if len(contours_grn) > 0 and not green:  # means haven't seen green triangle before
-			# drawing rect around the green square
-			x_grn, y_grn, w_grn, h_grn = cv2.boundingRect(contours_grn[0])
-			centerx_grn = int(x_grn + (w_grn / 2))
-			centery_grn = int(y_grn + (h_grn / 2))
-			# drawing line in center of green square
-			cv2.line(image, (centerx_grn, centery_grn), (centerx_grn, centery_grn), (0, 0, 255), 3)
-			cv2.rectangle(image, (x_grn, y_grn), (x_grn + w_grn, y_grn + h_grn), (255, 0, 0), 2)
-			setpoint = resolution[0] / 2
-			error = int(centerx_grn - setpoint)
-			if lidar.getReading(90) < 40:
-				# drop the ball code
-				robot.movedegrees(-70, 70, 45)
-				robot.move(-50, -50)
-				time.sleep(2)
-				# uh drop ball
-				green = True
-				break
-			else:
-				robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
-
-		elif len(contours_red) > 0 and not red:
-			# drawing rect around the green square
-			x_red, y_red, w_red, h_red = cv2.boundingRect(contours_red[0])
-			centerx_red = int(x_red + (w_red / 2))
-			centery_red = int(y_red + (h_red / 2))
-			# drawing line in center of green square
-			cv2.line(image, (centerx_red, centery_red), (centerx_red, centery_red), (0, 0, 255), 3)
-			cv2.rectangle(image, (x_red, y_red), (x_red + w_red, y_red + h_red), (255, 0, 0), 2)
-			setpoint = resolution[0] / 2
-			error = int(centerx_red - setpoint)
-			if lidar.getReading(90) < 40:
-				# drop the ball code
-				robot.movedegrees(-70, 70, 45)
-				robot.move(-50, -50)
-				time.sleep(2)
-				# uh drop ball
-				red = True
-				break
-			else:
-				robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
-
 
 		
 def wallTrack(lidar, robot, threshold=80):
@@ -275,6 +215,9 @@ def wallTrack(lidar, robot, threshold=80):
 	robot.move(0,0)
 	robot.movedegrees(-90, 90, 19)
 	print('start walltracking')
+	while lidar.getReading(175) > 100:
+		robot.move(-90,90)
+	robot.move(0,0)
 	return
 	speed = 90
 	kp = 1.5

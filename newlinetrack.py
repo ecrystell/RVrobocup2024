@@ -6,6 +6,11 @@ from robot import *
 from LD19 import LD19
 from coloursensor import TCS34725
 from evaczone import *
+import RPI.GPIO as GPIO
+
+GPIO.setwarnings(False) # Ignore warning for now
+GPIO.setmode(GPIO.BOARD) # Use physical pin numbering
+GPIO.setup(20, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) 
 
 cap = cv2.VideoCapture(0)
 resolution = (320, 240)
@@ -120,6 +125,7 @@ r.ramp(94)
 r.grabber(180,0)
 
 while True:
+	run = (GPIO.input(20) == GPIO.HIGH)
 	if run:
 		checkObstacle()
 	_, original = cap.read()
@@ -182,7 +188,7 @@ while True:
 	contours_blkTop = sorted(contours_blkTop, reverse=True, key=cv2.contourArea)
 	contours_blkBtm = sorted(contours_blkBtm, reverse=True, key=cv2.contourArea)
 	if len(contours_blkTop) > 0 or len(contours_blkBtm) > 0:
-		if len(contours_blkTop) >= 2:
+		if len(contours_blkTop) >= 2 and run:
 			min_x, min_y = 9999, 9999
 			max_x = max_y = 0
 			areaSum = 0
@@ -462,5 +468,11 @@ while True:
 		k = k - 0.1
 		print("speed:" + str(speed) + "\tk:" + str(k))
 
-wallTrack(lidar, r)
+while run:
+    if run:
+    	pickUpBall(cap, lidar, r)
+		pass
+	if run:
+    	wallTrack(lidar, r)
+	
 # ~ pickUpBall(cap, lidar, r)
