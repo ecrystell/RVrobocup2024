@@ -191,8 +191,8 @@ def pickUpBall(cap, lidar, robot):
 
 		
 def wallTrack(cap, lidar, robot, green, red):
-	threshold = 40
-	
+	threshold = 50
+	robot.movedegrees(100, 100, 20)
 	print('start finding wall')
 	closest = -1
 	while closest < 88 or closest > 92:
@@ -231,28 +231,56 @@ def wallTrack(cap, lidar, robot, green, red):
 		front = lidar.getReading(80)
 		print(right, front)
 		if right > 1000:
-			print("exit on right")
-			robot.movedegrees(100, 100, 10)
+			if not(green) or not(red):
+				print("exit on right")
+				robot.movedegrees(100, 100, 10)
+			else:
+				print('done')
+				robot.movedegrees(90, -90, 19)
+				time.sleep(1)
+				robot.move(0,0)
+				return
 		
-		if front < 30:
-			robot.move(0,0)
-
-			greenimg = cv2.inRange(image, (60, 150, 0), (110, 255, 160))
-			redimg = cv2.inRange(image, (0, 120, 22), (50, 255, 95))
+		greenimg = cv2.inRange(image, (40, 130, 94), (78, 203, 180))#(60, 150, 0), (110, 255, 160))
+		redimg = cv2.inRange(image, (0, 117, 24), (43, 255, 100))#(0, 120, 22), (50, 255, 95))
 			
-			kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
-			greenimg = cv2.erode(greenimg, kernel, iterations=5)  # eroding and dilating
-			greenimg = cv2.dilate(greenimg, kernel, iterations=9)
-			contours_grn, _ = cv2.findContours(greenimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+		kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
+		greenimg = cv2.erode(greenimg, kernel, iterations=5)  # eroding and dilating
+		greenimg = cv2.dilate(greenimg, kernel, iterations=9)
+		contours_grn, _ = cv2.findContours(greenimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
 			
-			redimg = cv2.erode(redimg, kernel, iterations=5)  # eroding and dilating
-			redimg = cv2.dilate(redimg, kernel, iterations=9)
-			contours_red, _ = cv2.findContours(redimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+		redimg = cv2.erode(redimg, kernel, iterations=5)  # eroding and dilating
+		redimg = cv2.dilate(redimg, kernel, iterations=9)
+		contours_red, _ = cv2.findContours(redimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 			# ~ sorted(contours_grn, key=cv2.contourArea)
 			# ~ sorted(contours_red, key=cv2.contourArea)
-			if len(contours_grn) > 0 and not(green): #and cv2.contourArea(contours_grn[-1]) > 10:
-				print('green triangle')
+		if len(contours_grn) > 0 and not(green): #and cv2.contourArea(contours_grn[-1]) > 10:
+			print('green triangle')
+			robot.move(0,0)
+			robot.movedegrees(-100,-100,20)
+			time.sleep(1)
+			robot.movedegrees(-90,90,38)
+			time.sleep(1)
+			robot.move(-50,-50)
+			time.sleep(5)
+				
+			robot.move(0,0)
+			time.sleep(1)
+			robot.ramp(133)
+			time.sleep(1)
+			robot.ramp(94)
+			print('silver ball dispensed')
+			robot.movedegrees(90, 90, 10)
+			time.sleep(1)
+			robot.movedegrees(90, 0, 10)
+			time.sleep(1)
+			green = True
+			#return "green"
+		elif len(contours_red) > 0 and not(red): # and cv2.contourArea(contours_red[-1]) > 10
+			print('red triangle')
+			if green:
+		
 				robot.move(0,0)
 				robot.movedegrees(-100,-100,20)
 				time.sleep(1)
@@ -260,47 +288,32 @@ def wallTrack(cap, lidar, robot, green, red):
 				time.sleep(1)
 				robot.move(-50,-50)
 				time.sleep(5)
-				
+					
 				robot.move(0,0)
 				time.sleep(1)
-				robot.ramp(133)
+				robot.ramp(55)
 				time.sleep(1)
 				robot.ramp(94)
-				print('silver ball dispensed')
+				print('black ball dispensed')
 				robot.movedegrees(90, 90, 10)
 				time.sleep(1)
 				robot.movedegrees(90, 0, 10)
 				time.sleep(1)
-				green = True
-				#return "green"
-			elif len(contours_red) > 0 and not(red): # and cv2.contourArea(contours_red[-1]) > 10
-				print('red triangle')
-				if green:
-					robot.move(0,0)
-					robot.movedegrees(-100,-100,20)
-					time.sleep(1)
-					robot.movedegrees(-90,90,38)
-					time.sleep(1)
-					robot.move(-50,-50)
-					time.sleep(5)
-					
-					robot.move(0,0)
-					time.sleep(1)
-					robot.ramp(55)
-					time.sleep(1)
-					robot.ramp(94)
-					print('black ball dispensed')
-					robot.movedegrees(90, 90, 10)
-					time.sleep(1)
-					robot.movedegrees(90, 0, 10)
-					time.sleep(1)
-					#return "red"
-				else:
-					robot.movedegrees(-90, -90, 15)
-					time.sleep(1)
-					robot.movedegrees(-90, 90, 23)
-					time.sleep(1)
+				red = True
+				#return "red"
 			else:
+				robot.movedegrees(-90, -90, 15)
+				time.sleep(1)
+				robot.movedegrees(-90, 90, 19)
+				time.sleep(1)
+				robot.movedegrees(90, 90, 10)
+				time.sleep(1)
+		
+		
+
+		else:
+			if front < 30:
+				robot.move(0,0)
 				print('corner')
 				robot.movedegrees(-90, -90, 15)
 				time.sleep(1)
@@ -308,12 +321,15 @@ def wallTrack(cap, lidar, robot, green, red):
 				time.sleep(1)
 				robot.movedegrees(90, 90, 10)
 				time.sleep(1)
-		else:
-			error = right - threshold
-			robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
+			else:
+				error = right - threshold
+				robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
 		
 		cv2.imshow('image', image)
 		key = cv2.waitKey(1)
+		if key == "q":
+			robot.move(0,0)
+			break
 		
 
 	
@@ -357,7 +373,7 @@ def test():
 		# ~ findCenter(distRobotToWall)
 		# ~ findTriangle()
 		# ~ findCenter()
-		# ~ wallTrack()
+		wallTrack(cap, lidar, robot, green, red)
 		
-# ~ test()
+test()
 		
