@@ -38,12 +38,16 @@ void setup() {
   pixels.show();
   
 }
-
+bool moving = false;
+int Lspeed = 0;
+int Rspeed = 0;
 void loop() {
   // Serial.print("A ");
   // Serial.println(countA);
   
   while (1) {
+    Serial.print("A: ");
+    Serial.println(countA);
     if (Serial1.available() > 0) { // change to serial1 when using thru rpi
       c = Serial1.read(); // change to serial1 when using thru rpi
       if (c == '\r') {
@@ -69,8 +73,12 @@ void loop() {
           Serial.print("\tright speed:");
           Serial.println(rightspeed);
           pidMotorSync(leftspeed, rightspeed);
+          moving = true;
+          Lspeed = leftspeed;
+          Rspeed = rightspeed;
 
         } else if (compareWord(buf, "G")) {  // grabber for now, position
+          moving = false;
           Serial.println(buf);
           pch = getNextWord(buf, " ,\0"); // separating the buffer by spaces or comma (\0 is end char)
           int pos = atoi(pch);
@@ -79,8 +87,31 @@ void loop() {
           Serial.print(pos);
           moveGrabber(pos);
           // insert servo function up or down
+
+        } else if (compareWord(buf, "S")) {  // sorter, position
+          moving = false;
+          Serial.println(buf);
+          pch = getNextWord(buf, " ,\0"); // separating the buffer by spaces or comma (\0 is end char)
+          int pos = atoi(pch);
           
+          Serial.print("pos:");
+          Serial.print(pos);
+          moveSorter(pos);
+          // insert servo function up or down
+
+        } else if (compareWord(buf, "R")) {  // ramp, position
+          moving = false;
+          Serial.println(buf);
+          pch = getNextWord(buf, " ,\0"); // separating the buffer by spaces or comma (\0 is end char)
+          int pos = atoi(pch);
+          
+          Serial.print("pos:");
+          Serial.print(pos);
+          moveRamp(pos);
+          // insert servo function up or down
+
         } else if (compareWord(buf, "D")) {  // move for degrees
+          moving = false;
           Serial.println(buf);
           pch = getNextWord(buf, " ,\0"); // separating the buffer by spaces or comma (\0 is end char)
           int leftspeed = atoi(pch);
@@ -97,6 +128,7 @@ void loop() {
           pidMotorSyncDegrees(leftspeed, rightspeed, degrees);
 
         } else if (compareWord(buf, "P")) { // pixel colour P r g b (0 to 255)
+          moving = false;
           Serial.println(buf);
           pch = getNextWord(buf, " ,\0");
           int R = atoi(pch);
@@ -113,6 +145,7 @@ void loop() {
           pixels.setPixelColor(0, pixels.Color(R, G, B));
           pixels.show();
         } else if (compareWord(buf, "CS1")) { //colour sensor, reading the sensor, not sending back to rpi
+          moving = false;
           for(int i=0; i< 10; i++){
             uint16_t r, g, b, c;
             // TCA9548A(0);
@@ -130,7 +163,13 @@ void loop() {
           Serial.println("Invalid Command");
         }
         idx = 0;
+        
+
+        
       }
+    }
+    if (moving) {
+      pidMotorSync(Lspeed, Rspeed);
     }
   }
 }

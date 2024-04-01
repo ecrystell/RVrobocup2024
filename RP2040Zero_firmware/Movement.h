@@ -13,7 +13,7 @@
 
 #define GRABBER 10
 #define SORTER 11
-#define SPINNER 12
+#define RAMP 12
 
 
 //encoders, 8 is right 9 is left, idk which one is A which is B
@@ -21,7 +21,7 @@
 #define ENB 8
 bool rightBackward, leftBackward;
 volatile int countA, countB;
-Servo grabber, sorter, spinner;
+Servo grabber, sorter, ramp;
 int prevLeft = 0;
 int prevRight = 0;
 
@@ -37,8 +37,7 @@ void isrA() {  // i
   } else {
     countA++;
   }
-  // Serial.print("A: ");
-  // Serial.println(countA);
+  
 }
 
 // count encoder thnigy for right side
@@ -48,8 +47,7 @@ void isrB() {
   } else {
     countB++;
   }
-  // Serial.print("B: ");
-  // Serial.println(countB);
+
 }
 // end copied
 
@@ -68,12 +66,20 @@ void setupMotors(){
   attachInterrupt(digitalPinToInterrupt(ENB), isrB, CHANGE);
   grabber.attach(GRABBER);
   sorter.attach(SORTER);
-  spinner.attach(SPINNER);
+  ramp.attach(RAMP);
   // end of copied
 }
 
 void moveGrabber(int pos) {
   grabber.write(pos);
+}
+
+void moveSorter(int pos) {
+  sorter.write(pos);
+}
+
+void moveRamp(int pos) {
+  ramp.write(pos);
 }
 
 void move(int LSpeed, int RSpeed)
@@ -135,23 +141,37 @@ void moveDegrees(int leftSpeed, int rightSpeed, int degrees) {
 void pidMotorSync(int leftSpeed, int rightSpeed) {
   // rmb to reset both count when colour sensor detect green or something
   static float mpreverror = 0;
-  float B = abs(countB) * (abs(leftSpeed) / abs(rightSpeed));
-  #define mkp 0.5
-  #define mki 0
-  #define mkd 0
+  float merror = 0;
+  if (leftSpeed == 0 || rightSpeed == 0) {
+    move(leftSpeed, rightSpeed);
+  } else {
+    if (abs(leftSpeed) > abs(rightSpeed)) {
+      float B = abs(countB) * (abs(leftSpeed) / abs(rightSpeed));
+      merror = B - abs(countA);
+    } else {
+      float A = abs(countA) * (abs(rightSpeed) / abs(leftSpeed));
+      
+      merror = abs(countB) - A;
+    }
+    #define mkp 5
+    #define mki 0
+    #define mkd 0
 
-  float merror = B - abs(countA);
-  float mP = mkp * merror;
-  // float I += mki * (error);
-  // float D = mkd * (error - preverror);
+    
+    float mP = mkp * merror;
+    // float I += mki * (error);
+    // float D = mkd * (error - preverror);
 
-  // float PID = P + I + D;
-  int leftdir = leftSpeed > 0 ? 1 : -1;
-  int rightdir = rightSpeed > 0 ? 1 : -1;
-  move((abs(leftSpeed) + mP)* leftdir, (abs(rightSpeed) - mP) * rightdir);
+    // float PID = P + I + D;
+    int leftdir = leftSpeed > 0 ? 1 : -1;
+    int rightdir = rightSpeed > 0 ? 1 : -1;
+    move((abs(leftSpeed) + mP)* leftdir, (abs(rightSpeed) - mP) * rightdir);
 
 
-  mpreverror = merror;
+    mpreverror = merror;
+  }
+  
+ 
   if (prevLeft != leftSpeed || prevRight != rightSpeed) {
     resetDegrees();
   }
@@ -171,13 +191,13 @@ void pidMotorSyncDegrees(int leftSpeed, int rightSpeed, int degrees) {
     while(abs(countA) < degrees){
       move(leftSpeed, 0);
     } 
-  } else if (abs(leftSpeed) > abs (rightSpeed)) {    
+  } else if (abs(leftSpeed) > abs(rightSpeed)) {    
     while(abs(countA) < degrees){
-      move(leftSpeed, rightSpeed);
+      pidMotorSync(leftSpeed, rightSpeed);
     }
   } else {
     while(abs(countB) < degrees){
-      move(leftSpeed, rightSpeed);
+      pidMotorSync(leftSpeed, rightSpeed);
     }
   }
   move(0, 0);
