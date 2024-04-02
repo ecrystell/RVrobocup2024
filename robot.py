@@ -17,6 +17,7 @@ class Robot:
 		)
 		
 	def move(self, lspeed, rspeed):
+		print("speed", lspeed, rspeed)
 		s = "M " + str(clamp(int(lspeed), -255, 255)) + " " + str(clamp(int(rspeed), -255, 255)) + "\r\n"
 		self.ser.write(s.encode("utf-8"))
 

@@ -7,7 +7,7 @@ import pygame
 import math
 import cv2
 
-# ~ lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
+#lidar = LD19('/dev/ttyAMA3', offsetdeg = 0, flip = True) #offsetddeg was -90
 # ~ robot = Robot('/dev/serial0')
 # ~ #robot.grabber(180, 180)
 # ~ cap = cv2.VideoCapture(0)
@@ -22,7 +22,11 @@ import cv2
 
 def findCenter(threshold):
 	robot.movedegrees(100, 100, 50)
+	robot.move(0,0)
+	time.sleep(1)
 	robot.move(70, -70)
+	robot.move(0,0)
+	time.sleep(1)
 	runtime = time.time() + 3
 	while time.time() < runtime:
 		if lidar.getReading(90) < threshold:
@@ -132,9 +136,13 @@ def pickUpBall(cap, lidar, robot):
 						#ballseen = True
 						print("ball found")
 						ballFound = True
-						black = cv2.inRange(gray, (0), (50))
+						black = cv2.inRange(gray, (0), (45))
 						contours, _ = cv2.findContours(black.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-						if len(contours) > 0:
+						totalarea = 0
+						for c in contours:
+							totalarea += cv2.contourArea(c)
+							
+						if len(contours) > 0 and totalarea > 1000:
 							print('black ball')
 							# turn sorter to black)
 							robot.sorter(70)
@@ -191,17 +199,18 @@ def pickUpBall(cap, lidar, robot):
 
 		
 def wallTrack(cap, lidar, robot, green, red):
-	threshold = 50
-	robot.movedegrees(100, 100, 20)
+	
+	threshold = 65
+	# ~ robot.movedegrees(100, 100, 20)
 	print('start finding wall')
 	closest = -1
 	while closest < 88 or closest > 92:
 		speed = (closest-90)
 		if abs(speed) < 40:
 			if closest-90 > 0:
-				speed = 40
+				speed = 100
 			else:
-				speed = -40
+				speed = -100
 		robot.move(speed, -speed)
 		minreading = 9999
 		for i in range(5,175):
@@ -210,39 +219,46 @@ def wallTrack(cap, lidar, robot, green, red):
 				closest = i
 		print(minreading, " minreading at ", closest)
 	
-	while lidar.getReading(closest) > 60:
+	while lidar.getReading(closest) > 70:
 		print('moving to wall')
 		robot.move(100,100)
+		#continue 
 	robot.move(0,0)
-	robot.movedegrees(-90, 90, 15)
-	
-	
-	robot.move(-90,90)
-	while lidar.getReading(177) > 120:
-		pass
+	time.sleep(1)
+	robot.movedegrees(-100, 100, 19)
 	robot.move(0,0)
-	speed = 90
-	kp = 1.5
+	time.sleep(1)	
+	#robot.move(-100,100)
+	
+	#while lidar.getReading(177) > 120:
+	#	pass
+	#robot.move(0,0)
+	#time.sleep(1)
+	speed = 100
+	kp = 1.8 #was 1.2 
 	print('start walltracking')
 	while True:
 		_, original = cap.read()
 		image = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
 		right = lidar.getReading(173)
-		front = lidar.getReading(80)
+		front = lidar.getReading(90)
 		print(right, front)
-		if right > 1000:
-			if not(green) or not(red):
-				print("exit on right")
-				robot.movedegrees(100, 100, 10)
-			else:
-				print('done')
-				robot.movedegrees(90, -90, 19)
-				time.sleep(1)
-				robot.move(0,0)
-				return
+		# ~ frontavg = sum(lidar.lidarvalues[5:101])/95
+		# ~ if frontavg > 1000:
+			# ~ print('outside', frontavg)
+			# ~ robot.movedegrees(-100, -100, 100)
+			# ~ robot.move(0,0)
+			# ~ time.sleep(1)
+			# ~ robot.movedegrees(-90, 90, 20)
+			# ~ robot.move(0,0)
+			# ~ time.sleep(1)
+			# ~ robot.movedegrees(100, 100, 100)
+			# ~ robot.move(0,0)
+			# ~ time.sleep(1)
+			# ~ continue
 		
-		greenimg = cv2.inRange(image, (40, 130, 94), (78, 203, 180))#(60, 150, 0), (110, 255, 160))
-		redimg = cv2.inRange(image, (0, 117, 24), (43, 255, 100))#(0, 120, 22), (50, 255, 95))
+		greenimg = cv2.inRange(image, (40, 170, 43), (100, 255, 120))
+		redimg = cv2.inRange(image, (0, 183, 44), (37, 255, 122))#(0, 120, 22), (50, 255, 95))
 			
 		kernel = np.ones((3, 3), np.uint8)  # to get the RGB thingies
 		greenimg = cv2.erode(greenimg, kernel, iterations=5)  # eroding and dilating
@@ -253,82 +269,266 @@ def wallTrack(cap, lidar, robot, green, red):
 		redimg = cv2.erode(redimg, kernel, iterations=5)  # eroding and dilating
 		redimg = cv2.dilate(redimg, kernel, iterations=9)
 		contours_red, _ = cv2.findContours(redimg.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+		
+		gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+		black = cv2.inRange(gray[50:150, 0:320],(0),(45))
+		
+		# ~ kernel = np.ones((3,3), np.uint8) 
+		# ~ black = cv2.erode(black, kernel, iterations=5) 
+		# ~ black = cv2.dilate(black, kernel, iterations=9)
+		contours,_ = cv2.findContours(black.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
+		
+
 			# ~ sorted(contours_grn, key=cv2.contourArea)
 			# ~ sorted(contours_red, key=cv2.contourArea)
-		if len(contours_grn) > 0 and not(green): #and cv2.contourArea(contours_grn[-1]) > 10:
-			print('green triangle')
-			robot.move(0,0)
-			robot.movedegrees(-100,-100,20)
-			time.sleep(1)
-			robot.movedegrees(-90,90,38)
-			time.sleep(1)
-			robot.move(-50,-50)
-			time.sleep(5)
+		if len(contours_grn) > 0: #and cv2.contourArea(contours_grn[-1]) > 10:
+			if green:
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(-90, -90, 20)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(-90, 90, 10)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 90, 70)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(0, 90, 20)
+				robot.move(0,0)
+				time.sleep(2)
+				# ~ pass
+			else:
+				print('green triangle')
 				
-			robot.move(0,0)
-			time.sleep(1)
-			robot.ramp(133)
-			time.sleep(1)
-			robot.ramp(94)
-			print('silver ball dispensed')
-			robot.movedegrees(90, 90, 10)
-			time.sleep(1)
-			robot.movedegrees(90, 0, 10)
-			time.sleep(1)
-			green = True
-			#return "green"
+				robot.move(0,0)
+				time.sleep(2)
+				
+				robot.movedegrees(0, -100, 107)
+				time.sleep(1)
+				robot.move(0,0)
+				time.sleep(1)
+				robot.move(-100, -100)
+				time.sleep(3)
+				robot.move(0,0)
+				time.sleep(1)
+				
+				# ~ robot.movedegrees(-100,-100,10)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(2)
+				# ~ robot.movedegrees(-90,90,40)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(2)
+				# ~ robot.move(-150,-150)
+				
+				# ~ time.sleep(5)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(3)
+				robot.ramp(133)
+				time.sleep(1)
+				robot.ramp(94)
+				print('silver ball dispensed')
+				robot.movedegrees(90, 90, 10)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 0,65)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 90, 15)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(0, 90, 20)
+				green = True
+			
 		elif len(contours_red) > 0 and not(red): # and cv2.contourArea(contours_red[-1]) > 10
 			print('red triangle')
 			if green:
 		
 				robot.move(0,0)
-				robot.movedegrees(-100,-100,20)
+				time.sleep(2)
+				
+				robot.movedegrees(0, -100, 107)
 				time.sleep(1)
-				robot.movedegrees(-90,90,38)
-				time.sleep(1)
-				robot.move(-50,-50)
-				time.sleep(5)
-					
 				robot.move(0,0)
 				time.sleep(1)
+				robot.move(-100, -100)
+				time.sleep(3)
+				robot.move(0,0)
+				time.sleep(1)
+				
+				# ~ robot.movedegrees(-100,-100,10)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(2)
+				# ~ robot.movedegrees(-90,90,40)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(2)
+				# ~ robot.move(-150,-150)
+				
+				# ~ time.sleep(5)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(3)
 				robot.ramp(55)
 				time.sleep(1)
 				robot.ramp(94)
 				print('black ball dispensed')
 				robot.movedegrees(90, 90, 10)
-				time.sleep(1)
-				robot.movedegrees(90, 0, 10)
-				time.sleep(1)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 0,65)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 90, 15)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(0, 90, 20)
 				red = True
-				#return "red"
 			else:
-				robot.movedegrees(-90, -90, 15)
-				time.sleep(1)
-				robot.movedegrees(-90, 90, 19)
-				time.sleep(1)
-				robot.movedegrees(90, 90, 10)
-				time.sleep(1)
+				print('ignore red')
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(-90, -90, 20)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(-90, 90, 10)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(90, 90, 70)
+				robot.move(0,0)
+				time.sleep(2)
+				robot.movedegrees(0, 90, 20)
+				robot.move(0,0)
+				time.sleep(2)
+				pass
 		
+		
+		elif len(contours)>0 : #see black 
+			print('see black') 
+			robot.move(0,0)
+			time.sleep(2)
+			if not(green) or not(red):
+				# ~ robot.movedegrees(-100,-100,10)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(1)
+
+				robot.movedegrees(0, -100, 20)
+				robot.move(0,0)
+				time.sleep(1)
+				robot.movedegrees(-100,100,30) 
+				robot.move(0,0)
+				time.sleep(1)
+				robot.move(100, 100)
+				time.sleep(1)
+				robot.move(0,0)
+			else:
+				sorted(contours, key=cv2.contourArea)
+				x,y,w,h = cv2.boundingRect(contours[-1])
+				if w > 50:
+					print('exit')
+					robot.movedegrees(100, 100, 20)
+					robot.move(0,0)
+					time.sleep(1)
+					break
+				else:
+					print('entrance')
+					robot.movedegrees(-100,-100,50)
+					robot.move(0,0)
+					time.sleep(1)
+					robot.movedegrees(-100,100,19) 
+					robot.move(0,0)
+					time.sleep(1)
+
+			
 		
 
 		else:
+			holeOnRight = False
+			for r in lidar.lidarvalues[140:180]:
+				if r > 850:
+					holeOnRight = True
 			if front < 30:
-				robot.move(0,0)
 				print('corner')
-				robot.movedegrees(-90, -90, 15)
+				robot.move(0,0)
 				time.sleep(1)
-				robot.movedegrees(-90, 90, 19)
+				robot.movedegrees(0, -100, 20)
+				robot.move(0,0)
 				time.sleep(1)
-				robot.movedegrees(90, 90, 10)
+				robot.movedegrees(-90, 90, 32)
+				robot.move(0,0)
 				time.sleep(1)
+				robot.move(-100, -100)
+				time.sleep(1)
+				robot.move(0,0)
+				time.sleep(1)
+				robot.movedegrees(100, 100, 10)
+				robot.move(0,0)
+				time.sleep(1)
+				
+				# ~ robot.move(-150,-150)
+				# ~ time.sleep(2)
+				
+				# ~ robot.movedegrees(100, 100, 10)
+				# ~ robot.move(0,0)
+				# ~ time.sleep(0.1)
+			elif holeOnRight:
+				print("right")
+				print(right)
+				robot.move(0,0)
+				time.sleep(0.1)
+				if not(green) or not(red):
+					print("exit on right")
+					print(right)
+					robot.move(0,0)
+					time.sleep(0.1)
+					robot.movedegrees(100, 100, 10)
+					robot.move(0,0)
+					time.sleep(1)
+				else:
+					print('done')
+					robot.movedegrees(90, 90, 10)
+					time.sleep(1)
+					robot.movedegrees(90, -90, 19)
+					time.sleep(1)
+					
+					robot.move(0,0)
+					
+					exitimg = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+					exitblk = cv2.inRange(exitimg[220:320, 0:320],(0),(50))
+		
+					kernel = np.ones((3,3), np.uint8) 
+					exitblk = cv2.erode(exitblk, kernel, iterations=5) 
+					exitblk = cv2.dilate(exitblk, kernel, iterations=9)
+					contoursExit ,_ = cv2.findContours(exitblk.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) 
+					if len(contoursExit) > 0:
+						sorted(contoursExit, key=cv2.contourArea)
+						x,y,w,h = cv2.boundingRect(contoursExit[-1])
+						if w > 200:
+							print('exit')
+							robot.movedegrees(100, 100, 20)
+							robot.move(0,0)
+							time.sleep(1)
+							break
+						else:
+							print('entrance')
+							robot.movedegrees(-100,-100,50)
+							robot.move(0,0)
+							time.sleep(1)
+							robot.movedegrees(-100,100,19) 
+							robot.move(0,0)
+							time.sleep(1)
+					
+					
 			else:
+				print('tracking')
 				error = right - threshold
 				robot.move(clamp(int(speed + error * kp), -255, 255), clamp(int(speed - error * kp), -255, 255))
-		
+				
+					
+		cv2.imshow("black", black)
 		cv2.imshow('image', image)
 		key = cv2.waitKey(1)
 		if key == "q":
 			robot.move(0,0)
+			time.sleep(10)
 			break
 		
 
@@ -360,7 +560,7 @@ def test():
 	cap.set(4, resolution[0]) 
 
 	
-	time.sleep(2)
+	time.sleep(1)
 	green = False
 	red = False
 	if silver:
@@ -374,6 +574,22 @@ def test():
 		# ~ findTriangle()
 		# ~ findCenter()
 		wallTrack(cap, lidar, robot, green, red)
+		# ~ if lidar.getReading(80) < 40:
+			# ~ robot.move(0,0)
+			# ~ print('corner')
+			# ~ break
+		# ~ else:
+			# ~ right = lidar.getReading(173)
+			# ~ if right > 900:
+				# ~ robot.movedegrees(70, 70, 1)
+				# ~ time.sleep(1)
+			# ~ else:
+				# ~ error = right - 45
+				# ~ robot.move(clamp(int(90 + error * 0.5), -255, 255), clamp(int(90 - error * 0.5), -255, 255))
+		
+		
 		
 test()
-		
+
+
+	
